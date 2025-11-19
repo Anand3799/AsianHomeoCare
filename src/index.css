@@ -1,11 +1,41 @@
+* {
+  box-sizing: border-box;
+}
+
 body {
   margin: 0;
   font-family: 'Segoe UI', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  overflow-x: hidden;
 }
 
 code {
   font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New', monospace;
 }
 
+/* Responsive Base Styles */
+html {
+  font-size: 16px;
+}
+
+/* Tablet and below */
+@media (max-width: 1024px) {
+  html {
+    font-size: 15px;
+  }
+}
+
+/* Mobile Large */
+@media (max-width: 768px) {
+  html {
+    font-size: 14px;
+  }
+}
+
+/* Mobile Small */
+@media (max-width: 480px) {
+  html {
+    font-size: 13px;
+  }
+}

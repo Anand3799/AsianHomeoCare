@@ -222,3 +222,227 @@
   color: #94a3b8;
   font-size: 0.85rem;
 }
+
+/* ========================================
+   RESPONSIVE MEDIA QUERIES
+   ======================================== */
+
+/* Large Desktop (1920px and above) */
+@media (min-width: 1920px) {
+  .login-card {
+    max-width: 500px;
+    padding: 50px;
+  }
+  
+  .hospital-icon {
+    font-size: 5rem;
+  }
+}
+
+/* Desktop (1200px to 1919px) */
+@media (min-width: 1200px) and (max-width: 1919px) {
+  .login-card {
+    max-width: 450px;
+  }
+}
+
+/* Tablet Landscape (1024px to 1199px) */
+@media (max-width: 1199px) {
+  .login-card {
+    max-width: 420px;
+    padding: 35px;
+  }
+}
+
+/* Tablet Portrait (768px to 1023px) */
+@media (max-width: 1023px) {
+  .login-container {
+    padding: 15px;
+  }
+  
+  .login-card {
+    max-width: 400px;
+    padding: 30px;
+  }
+  
+  .hospital-icon {
+    font-size: 3.5rem;
+  }
+  
+  .login-header h1 {
+    font-size: 1.5rem;
+  }
+}
+
+/* Mobile Large (600px to 767px) */
+@media (max-width: 767px) {
+  .login-container {
+    padding: 10px;
+  }
+  
+  .login-card {
+    max-width: 100%;
+    padding: 25px 20px;
+    border-radius: 15px;
+  }
+  
+  .hospital-icon {
+    font-size: 3rem;
+  }
+  
+  .login-header h1 {
+    font-size: 1.4rem;
+  }
+  
+  .login-header p {
+    font-size: 0.9rem;
+  }
+  
+  .input-group input {
+    padding: 12px 14px 12px 45px;
+    font-size: 0.95rem;
+  }
+  
+  .input-icon {
+    left: 14px;
+    font-size: 1.1rem;
+  }
+  
+  .toggle-password {
+    right: 14px;
+    font-size: 1.1rem;
+  }
+  
+  .role-options {
+    gap: 10px;
+  }
+  
+  .role-option {
+    padding: 10px 8px;
+  }
+  
+  .role-option span {
+    font-size: 0.9rem;
+  }
+  
+  .login-button {
+    padding: 12px;
+    font-size: 1rem;
+  }
+  
+  .login-options {
+    flex-direction: column;
+    gap: 10px;
+    align-items: flex-start;
+  }
+}
+
+/* Mobile Medium (480px to 599px) */
+@media (max-width: 599px) {
+  .login-card {
+    padding: 20px 15px;
+  }
+  
+  .hospital-icon {
+    font-size: 2.5rem;
+  }
+  
+  .login-header {
+    margin-bottom: 30px;
+  }
+  
+  .login-header h1 {
+    font-size: 1.3rem;
+  }
+  
+  .login-form {
+    gap: 15px;
+  }
+}
+
+/* Mobile Small (320px to 479px) */
+@media (max-width: 479px) {
+  .login-container {
+    padding: 5px;
+  }
+  
+  .login-card {
+    padding: 20px 12px;
+    border-radius: 12px;
+  }
+  
+  .hospital-icon {
+    font-size: 2.2rem;
+    margin-bottom: 12px;
+  }
+  
+  .login-header h1 {
+    font-size: 1.2rem;
+  }
+  
+  .login-header p {
+    font-size: 0.85rem;
+  }
+  
+  .input-group input {
+    padding: 10px 12px 10px 40px;
+    font-size: 0.9rem;
+  }
+  
+  .input-icon {
+    left: 12px;
+    font-size: 1rem;
+  }
+  
+  .toggle-password {
+    right: 12px;
+    font-size: 1rem;
+  }
+  
+  .role-options {
+    flex-direction: column;
+    gap: 8px;
+  }
+  
+  .role-option {
+    padding: 10px;
+  }
+  
+  .role-option input[type="radio"] {
+    width: 16px;
+    height: 16px;
+  }
+  
+  .role-option span {
+    font-size: 0.85rem;
+  }
+  
+  .login-button {
+    padding: 11px;
+    font-size: 0.95rem;
+  }
+  
+  .remember-me,
+  .forgot-password {
+    font-size: 0.85rem;
+  }
+  
+  .login-footer p {
+    font-size: 0.8rem;
+  }
+}
+
+/* Extra Small Mobile (below 320px) */
+@media (max-width: 319px) {
+  .login-card {
+    padding: 15px 10px;
+  }
+  
+  .hospital-icon {
+    font-size: 2rem;
+  }
+  
+  .login-header h1 {
+    font-size: 1.1rem;
+  }
+}

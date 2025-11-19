@@ -117,3 +117,151 @@
   background-color: #f8fafc;
   min-height: 100vh;
 }
+
+/* ========================================
+   RESPONSIVE MEDIA QUERIES - DOCTOR LAYOUT
+   ======================================== */
+
+/* Tablet and below (1024px) */
+@media (max-width: 1024px) {
+  .doctor-sidebar {
+    width: 220px;
+  }
+  
+  .main-content {
+    margin-left: 220px;
+    padding: 20px;
+  }
+  
+  .sidebar-header {
+    padding: 25px 15px;
+  }
+  
+  .logo-icon {
+    font-size: 2.5rem;
+  }
+  
+  .sidebar-header h2 {
+    font-size: 1.2rem;
+  }
+  
+  .nav-link {
+    padding: 12px 20px;
+    font-size: 0.95rem;
+  }
+  
+  .nav-icon {
+    font-size: 1.2rem;
+  }
+}
+
+/* Mobile Large (768px) */
+@media (max-width: 768px) {
+  .doctor-sidebar {
+    width: 70px;
+    transition: width 0.3s;
+  }
+  
+  .doctor-sidebar:hover {
+    width: 220px;
+  }
+  
+  .main-content {
+    margin-left: 70px;
+    padding: 15px;
+  }
+  
+  .sidebar-header h2,
+  .nav-link span,
+  .user-name,
+  .user-role,
+  .logout-btn span {
+    display: none;
+  }
+  
+  .doctor-sidebar:hover .sidebar-header h2,
+  .doctor-sidebar:hover .nav-link span,
+  .doctor-sidebar:hover .user-name,
+  .doctor-sidebar:hover .user-role,
+  .doctor-sidebar:hover .logout-btn span {
+    display: block;
+  }
+  
+  .sidebar-header {
+    padding: 20px 10px;
+  }
+  
+  .logo-icon {
+    font-size: 2rem;
+    margin-bottom: 0;
+  }
+  
+  .nav-link {
+    justify-content: center;
+    padding: 12px;
+  }
+  
+  .doctor-sidebar:hover .nav-link {
+    justify-content: flex-start;
+    padding: 12px 20px;
+  }
+  
+  .sidebar-footer {
+    padding: 10px;
+  }
+  
+  .user-info {
+    justify-content: center;
+    padding: 10px;
+  }
+  
+  .logout-btn {
+    padding: 10px;
+    justify-content: center;
+  }
+}
+
+/* Mobile Medium (600px) */
+@media (max-width: 600px) {
+  .doctor-sidebar {
+    position: fixed;
+    left: -220px;
+    width: 220px;
+    z-index: 1000;
+    transition: left 0.3s;
+  }
+  
+  .doctor-sidebar.mobile-open {
+    left: 0;
+  }
+  
+  .main-content {
+    margin-left: 0;
+    padding: 10px;
+  }
+  
+  .sidebar-header h2,
+  .nav-link span,
+  .user-name,
+  .user-role,
+  .logout-btn span {
+    display: block;
+  }
+  
+  .nav-link {
+    justify-content: flex-start;
+    padding: 12px 20px;
+  }
+}
+
+/* Mobile Small (480px) */
+@media (max-width: 480px) {
+  .main-content {
+    padding: 8px;
+  }
+  
+  .doctor-sidebar {
+    width: 200px;
+    left: -200px;
+  }
+}
