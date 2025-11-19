@@ -1,0 +1,189 @@
+.doctor-dashboard h1 {
+  font-size: 2rem;
+  margin-bottom: 30px;
+  color: var(--text-dark);
+}
+
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 20px;
+  margin-bottom: 40px;
+}
+
+.dashboard-card {
+  background: white;
+  border-radius: 16px;
+  padding: 24px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  transition: all 0.3s;
+}
+
+.dashboard-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.12);
+}
+
+.card-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.card-icon {
+  font-size: 1.8rem;
+  color: var(--doctor-accent);
+}
+
+.card-header h2 {
+  font-size: 1rem;
+  color: var(--text-light);
+  font-weight: 600;
+}
+
+.card-count {
+  font-size: 3rem;
+  font-weight: 700;
+  color: var(--text-dark);
+}
+
+.content-section {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 24px;
+}
+
+.appointments-section,
+.queue-section {
+  background: white;
+  border-radius: 16px;
+  padding: 24px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.appointments-section h2,
+.queue-section h2 {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 20px;
+  color: var(--text-dark);
+  font-size: 1.3rem;
+}
+
+.appointments-list,
+.queue-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.appointment-item,
+.queue-item {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px;
+  background-color: var(--light-bg);
+  border-radius: 12px;
+  border-left: 4px solid var(--doctor-accent);
+}
+
+.appointment-time {
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: var(--doctor-accent);
+  min-width: 70px;
+}
+
+.appointment-details {
+  flex: 1;
+}
+
+.appointment-details h3 {
+  font-size: 1.1rem;
+  margin-bottom: 4px;
+}
+
+.appointment-details p {
+  color: var(--text-light);
+  font-size: 0.9rem;
+}
+
+.appointment-duration {
+  font-size: 0.9rem;
+  color: var(--text-light);
+  background-color: white;
+  padding: 6px 12px;
+  border-radius: 8px;
+}
+
+.queue-number {
+  background-color: var(--doctor-accent);
+  color: white;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 1.2rem;
+}
+
+.queue-details {
+  flex: 1;
+}
+
+.queue-details h3 {
+  font-size: 1rem;
+  margin-bottom: 4px;
+}
+
+.queue-details p {
+  color: var(--text-light);
+  font-size: 0.9rem;
+  margin-bottom: 4px;
+}
+
+.queue-details small {
+  color: var(--text-light);
+  font-size: 0.8rem;
+}
+
+.new-patient-indicator {
+  display: inline-block;
+  background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
+  color: white;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  margin: 4px 0;
+}
+
+.complete-btn {
+  background-color: var(--success);
+  color: white;
+  border: none;
+  padding: 10px 16px;
+  border-radius: 8px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+  transition: all 0.2s;
+}
+
+.complete-btn:hover {
+  background-color: #059669;
+  transform: scale(1.05);
+}
+
+@media (max-width: 1024px) {
+  .content-section {
+    grid-template-columns: 1fr;
+  }
+}
