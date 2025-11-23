@@ -7,7 +7,9 @@ import {
   FaPhoneVolume,
   FaSignOutAlt,
   FaHospital,
-  FaUserTie
+  FaUserTie,
+  FaHistory,
+  FaClipboardList
 } from 'react-icons/fa';
 import '../styles/StaffLayout.css';
 
@@ -56,6 +58,16 @@ const StaffLayout = () => {
           <NavLink to="/staff/call-queue" className="nav-link">
             <FaPhoneVolume className="nav-icon" />
             <span>Call Queue</span>
+          </NavLink>
+
+          <NavLink to="/staff/call-logs" className="nav-link">
+            <FaHistory className="nav-icon" />
+            <span>Call Logs</span>
+          </NavLink>
+
+          <NavLink to="/staff/appointment-logs" className="nav-link">
+            <FaClipboardList className="nav-icon" />
+            <span>Appointment Logs</span>
           </NavLink>
         </nav>
 

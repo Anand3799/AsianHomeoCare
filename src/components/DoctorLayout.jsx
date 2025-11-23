@@ -3,10 +3,13 @@ import { useAuth } from '../contexts/AuthContext';
 import {
   FaUserMd,
   FaCalendarCheck,
+  FaCalendarPlus,
   FaPhoneAlt,
   FaFolderOpen,
   FaSignOutAlt,
-  FaHospital
+  FaHospital,
+  FaHistory,
+  FaClipboardList
 } from 'react-icons/fa';
 import '../styles/DoctorLayout.css';
 
@@ -42,6 +45,11 @@ const DoctorLayout = () => {
             <span>Appointments</span>
           </NavLink>
 
+          <NavLink to="/doctor/booking" className="nav-link">
+            <FaCalendarPlus className="nav-icon" />
+            <span>Book Appointment</span>
+          </NavLink>
+
           <NavLink to="/doctor/patients" className="nav-link">
             <FaFolderOpen className="nav-icon" />
             <span>Patient Records</span>
@@ -50,6 +58,16 @@ const DoctorLayout = () => {
           <NavLink to="/doctor/call-queue" className="nav-link">
             <FaPhoneAlt className="nav-icon" />
             <span>Call Queue</span>
+          </NavLink>
+
+          <NavLink to="/doctor/call-logs" className="nav-link">
+            <FaHistory className="nav-icon" />
+            <span>Call Logs</span>
+          </NavLink>
+
+          <NavLink to="/doctor/appointment-logs" className="nav-link">
+            <FaClipboardList className="nav-icon" />
+            <span>Appointment Logs</span>
           </NavLink>
         </nav>
 

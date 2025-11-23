@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react';
-import { getCallQueue, addToCallQueue, deleteFromCallQueue, getPatientByPhone, checkPatientInQueueToday, getAllPatients, createPatientFromCallQueue } from '../../firebase/firestore';
+import { getCallQueue, addToCallQueue, deleteFromCallQueue, completeCallQueue, getPatientByName, checkPatientInQueueToday, getAllPatients, createPatientFromCallQueue } from '../../firebase/firestore';
+import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
 import ConfirmDialog from '../../components/ConfirmDialog';
+import PatientNameTypeahead from '../../components/PatientNameTypeahead';
 import { FaPhoneVolume, FaPlus, FaClock, FaTrash, FaCheckCircle, FaExclamationTriangle, FaUserPlus } from 'react-icons/fa';
 import { format } from 'date-fns';
 import '../../styles/CallQueue.css';
@@ -16,6 +18,11 @@ const CallQueue = () => {
   const [patientFound, setPatientFound] = useState(null);
   const [validationMessage, setValidationMessage] = useState('');
   const [confirmDialog, setConfirmDialog] = useState({ isOpen: false, call: null });
+  const { currentUser } = useAuth();
+  const [showCompleteModal, setShowCompleteModal] = useState(false);
+  const [selectedCall, setSelectedCall] = useState(null);
+  const [staffNotes, setStaffNotes] = useState('');
+  const [isNewPatient, setIsNewPatient] = useState(false);
   const [formData, setFormData] = useState({
     patientName: '',
     phone: '',
@@ -23,6 +30,7 @@ const CallQueue = () => {
     age: '',
     gender: '',
     address: '',
+    reasonForCall: '',
     status: 'waiting',
     isNewPatient: false
   });
@@ -42,59 +50,40 @@ const CallQueue = () => {
     };
   }, []);
 
-  // Validate phone number and auto-fill patient name
-  const handlePhoneChange = async (phone) => {
-    setFormData({ 
-      ...formData, 
-      phone, 
-      patientName: '', 
-      patientId: null,
-      age: '',
-      gender: '',
-      address: '',
-      isNewPatient: false
-    });
-    setValidationMessage('');
-    setPatientFound(null);
+  const handleNameChange = (name) => {
+    setFormData({ ...formData, patientName: name });
+  };
 
-    // Only validate if phone has at least 10 digits
-    if (phone.length >= 10) {
-      setIsChecking(true);
-      
-      try {
-        // Check if patient exists in database
-        const patient = await getPatientByPhone(phone);
-        
-        if (patient) {
-          // Patient found - auto-fill all details
-          setFormData({
-            ...formData,
-            phone,
-            patientName: patient.name,
-            patientId: patient.id,
-            age: patient.age || '',
-            gender: patient.gender || '',
-            address: patient.address || '',
-            isNewPatient: patient.isNewPatient || false
-          });
-          setPatientFound(true);
-          setValidationMessage(`✓ Patient found: ${patient.name}${patient.isNewPatient ? ' (New Patient)' : ' (Returning Patient)'}`);
-        } else {
-          // Patient not found - allow manual entry
-          setPatientFound(false);
-          setFormData({
-            ...formData,
-            phone,
-            isNewPatient: true
-          });
-          setValidationMessage('⚠ Phone number not found. Please enter patient details below to create new record.');
-        }
-      } catch (error) {
-        console.error('Error checking patient:', error);
-        setValidationMessage('Error checking patient. Please try again.');
-      } finally {
-        setIsChecking(false);
-      }
+  const handlePatientSelect = (patient) => {
+    // Check if this is a brand new patient being added (not in database)
+    if (patient.isNew) {
+      setIsNewPatient(true);
+      setPatientFound(false);
+      setFormData(prev => ({
+        ...prev,
+        patientName: patient.name,
+        phone: '',
+        patientId: null,
+        age: '',
+        gender: '',
+        address: '',
+        isNewPatient: true
+      }));
+      setValidationMessage('⚠ New patient. Please enter phone number and other details.');
+    } else {
+      setIsNewPatient(patient.isNewPatient || false);
+      setPatientFound(true);
+      setFormData(prev => ({
+        ...prev,
+        patientName: patient.name,
+        phone: patient.phone,
+        patientId: patient.id,
+        age: patient.age || '',
+        gender: patient.gender || '',
+        address: patient.address || '',
+        isNewPatient: patient.isNewPatient || false
+      }));
+      setValidationMessage(`✓ Patient found${patient.isNewPatient ? ' (New Patient)' : ' (Returning Patient)'}`);
     }
   };
 
@@ -126,20 +115,21 @@ const CallQueue = () => {
   const handleAddToQueue = async (e) => {
     e.preventDefault();
 
-    // Validate phone number is entered and checked
+    // Validate patient name is entered
+    if (!formData.patientName || formData.patientName.trim() === '') {
+      toast.warning('Please enter the patient name.');
+      return;
+    }
+
+    // Validate phone number is entered
     if (!formData.phone || formData.phone.length < 10) {
       toast.warning('Please enter a valid 10-digit phone number.');
       return;
     }
 
-    if (isChecking) {
-      toast.info('Please wait while we check the patient details.');
-      return;
-    }
-
-    // Validate patient name is entered
-    if (!formData.patientName || formData.patientName.trim() === '') {
-      toast.warning('Please enter the patient name.');
+    // Validate reason for call
+    if (!formData.reasonForCall || formData.reasonForCall.trim() === '') {
+      toast.warning('Please enter the reason for call.');
       return;
     }
 
@@ -189,8 +179,10 @@ const CallQueue = () => {
         patientId: patientId,
         age: formData.age || '',
         gender: formData.gender || '',
+        reasonForCall: formData.reasonForCall.trim(),
         status: 'waiting',
-        isNewPatient: isNewPatient
+        isNewPatient: isNewPatient,
+        addedBy: currentUser?.email || 'staff'
       });
 
       toast.success(`${formData.patientName} added to call queue successfully!${isNewPatient ? ' (Marked as New Patient)' : ''}`);
@@ -203,6 +195,7 @@ const CallQueue = () => {
         age: '',
         gender: '',
         address: '',
+        reasonForCall: '',
         status: 'waiting',
         isNewPatient: false
       });
@@ -236,6 +229,31 @@ const CallQueue = () => {
 
   const cancelDeleteFromQueue = () => {
     setConfirmDialog({ isOpen: false, call: null });
+  };
+
+  const handleCompleteCall = (call) => {
+    setSelectedCall(call);
+    setStaffNotes('');
+    setShowCompleteModal(true);
+  };
+
+  const confirmCompleteCall = async () => {
+    if (!selectedCall) return;
+
+    try {
+      await completeCallQueue(
+        selectedCall.id,
+        currentUser?.email || 'staff',
+        staffNotes
+      );
+      toast.success(`Call with ${selectedCall.patientName} marked as completed.`);
+      setShowCompleteModal(false);
+      setSelectedCall(null);
+      setStaffNotes('');
+    } catch (error) {
+      console.error('Error completing call:', error);
+      toast.error('Failed to complete call');
+    }
   };
 
   return (
@@ -278,21 +296,15 @@ const CallQueue = () => {
 
             <form onSubmit={handleAddToQueue} className="call-form">
               <div className="form-group">
-                <label>Phone Number * (Enter phone first)</label>
-                <input
-                  type="tel"
-                  value={formData.phone}
-                  onChange={(e) => handlePhoneChange(e.target.value)}
-                  placeholder="Enter 10-digit phone number"
-                  required
-                  pattern="[0-9]{10}"
-                  maxLength="10"
+                <label>Patient Name * (Search by name)</label>
+                <PatientNameTypeahead
+                  value={formData.patientName}
+                  onChange={handleNameChange}
+                  onSelect={handlePatientSelect}
+                  placeholder="Type patient name (2+ characters for suggestions)"
+                  disabled={false}
+                  required={true}
                 />
-                {isChecking && (
-                  <small className="validation-message checking">
-                    🔍 Checking patient records...
-                  </small>
-                )}
                 {validationMessage && (
                   <small className={`validation-message ${patientFound ? 'success' : 'error'}`}>
                     {validationMessage}
@@ -301,29 +313,46 @@ const CallQueue = () => {
               </div>
 
               <div className="form-group">
-                <label>Patient Name *</label>
+                <label>Phone Number *</label>
                 <input
-                  type="text"
-                  value={formData.patientName}
-                  onChange={(e) => setFormData({ ...formData, patientName: e.target.value })}
-                  readOnly={patientFound === true}
-                  placeholder={patientFound === false ? "Enter patient name" : "Name will auto-fill after entering phone"}
-                  className={patientFound === true ? "readonly-input" : ""}
+                  type="tel"
+                  value={formData.phone}
+                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                  placeholder="Enter 10-digit phone number"
                   required
+                  pattern="[0-9]{10}"
+                  maxLength="10"
+                  readOnly={patientFound === true}
+                  className={patientFound === true ? "readonly-input" : ""}
                 />
                 <small className="field-note">
                   {patientFound === true && (
                     <>
                       <FaCheckCircle style={{ color: '#10b981' }} />
-                      {' '}Existing patient - Name auto-filled
+                      {' '}Existing patient - Phone auto-filled
                     </>
                   )}
                   {patientFound === false && (
                     <>
                       <FaUserPlus style={{ color: '#f59e0b' }} />
-                      {' '}New patient - Will be added to records
+                      {' '}New patient - Enter phone number
                     </>
                   )}
+                </small>
+              </div>
+
+              <div className="form-group">
+                <label>Reason for Call *</label>
+                <textarea
+                  value={formData.reasonForCall}
+                  onChange={(e) => setFormData({ ...formData, reasonForCall: e.target.value })}
+                  placeholder="Why is the patient calling? (e.g., Follow-up, New complaint, Medicine refill)"
+                  rows="3"
+                  required
+                  className="reason-textarea"
+                />
+                <small className="field-note">
+                  Provide a brief description so the doctor knows the purpose of the call
                 </small>
               </div>
 
@@ -372,7 +401,7 @@ const CallQueue = () => {
                 <button 
                   type="submit" 
                   className="save-btn"
-                  disabled={isAdding || isChecking || patientFound === null}
+                  disabled={isAdding}
                 >
                   {isAdding ? 'Adding...' : patientFound === false ? 'Create Patient & Add to Queue' : 'Add to Queue'}
                 </button>
@@ -388,6 +417,7 @@ const CallQueue = () => {
                       age: '', 
                       gender: '', 
                       address: '', 
+                      reasonForCall: '',
                       status: 'waiting',
                       isNewPatient: false
                     });
@@ -435,11 +465,16 @@ const CallQueue = () => {
                     )}
                   </div>
                   <p className="phone-number">📞 {call.phone}</p>
+                  {call.reasonForCall && (
+                    <div className="reason-for-call">
+                      <strong>Reason:</strong> {call.reasonForCall}
+                    </div>
+                  )}
                   <div className="call-time">
                     <FaClock className="time-icon" />
                     <span>
                       Added: {call.timestamp?.toDate 
-                        ? format(call.timestamp.toDate(), 'MMM dd, yyyy • hh:mm a')
+                        ? format(call.timestamp.toDate(), 'dd-MM-yyyy • hh:mm a')
                         : 'N/A'}
                     </span>
                   </div>
@@ -449,6 +484,13 @@ const CallQueue = () => {
                     <span className="status-dot"></span>
                     Waiting
                   </div>
+                  <button
+                    className="complete-queue-btn"
+                    onClick={() => handleCompleteCall(call)}
+                    title="Mark as completed"
+                  >
+                    <FaCheckCircle /> Complete
+                  </button>
                   <button
                     className="delete-queue-btn"
                     onClick={() => handleDeleteFromQueue(call)}
@@ -473,6 +515,52 @@ const CallQueue = () => {
           <li><strong>Data Consistency:</strong> Phone numbers and names are validated against patient records</li>
         </ul>
       </div>
+
+      {showCompleteModal && selectedCall && (
+        <div className="modal-overlay">
+          <div className="modal-content complete-modal">
+            <div className="modal-header">
+              <h2>Complete Call</h2>
+              <button className="close-btn" onClick={() => setShowCompleteModal(false)}>
+                ×
+              </button>
+            </div>
+
+            <div className="modal-body">
+              <div className="call-summary">
+                <h3>{selectedCall.patientName}</h3>
+                <p>📞 {selectedCall.phone}</p>
+                {selectedCall.reasonForCall && (
+                  <div className="reason-display">
+                    <strong>Reason for Call:</strong>
+                    <p>{selectedCall.reasonForCall}</p>
+                  </div>
+                )}
+              </div>
+
+              <div className="form-group">
+                <label>Staff Notes (Optional)</label>
+                <textarea
+                  value={staffNotes}
+                  onChange={(e) => setStaffNotes(e.target.value)}
+                  placeholder="Add any notes about this call (e.g., action taken, follow-up needed)"
+                  rows="4"
+                  className="staff-notes-textarea"
+                />
+              </div>
+
+              <div className="form-actions">
+                <button className="save-btn" onClick={confirmCompleteCall}>
+                  <FaCheckCircle /> Mark as Completed
+                </button>
+                <button className="cancel-btn" onClick={() => setShowCompleteModal(false)}>
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       <ConfirmDialog
         isOpen={confirmDialog.isOpen}

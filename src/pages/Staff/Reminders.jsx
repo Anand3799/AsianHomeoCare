@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { getReminders, addReminder, updateReminder, getAllAppointments, bookAppointmentWithTransaction, getPatientByPhone } from '../../firebase/firestore';
+import { getReminders, addReminder, updateReminder, getAllAppointments, bookAppointmentWithTransaction, getPatientByName } from '../../firebase/firestore';
 import { useToast } from '../../contexts/ToastContext';
 import { FaBell, FaPlus, FaCalendarAlt, FaPhone, FaCalendarCheck, FaTimes } from 'react-icons/fa';
 import { format, subDays, addDays, parseISO, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay } from 'date-fns';
@@ -66,7 +66,7 @@ const Reminders = () => {
     
     remindersList.forEach(reminder => {
       // Create a unique key based on phone, date, type, and message
-      const key = `${reminder.patientPhone}-${reminder.date}-${reminder.type}-${reminder.message}`;
+      const key = `${reminder.patientName}-${reminder.date}-${reminder.type}-${reminder.message}`;
       
       if (!seen.has(key)) {
         seen.add(key);
@@ -95,7 +95,7 @@ const Reminders = () => {
       if (apt.nextVisit === tomorrow && apt.status === 'completed') {
         // Check if reminder already exists in current reminders list
         const existingReminder = reminders.find(
-          r => r.patientPhone === apt.patientPhone && 
+          r => r.patientName === apt.patientName && 
           r.date === tomorrow && 
           r.type === 'medicine' &&
           r.message === 'Next visit scheduled for tomorrow'
@@ -159,7 +159,7 @@ const Reminders = () => {
     
     // Check if patient is new and get patient details
     try {
-      const patient = await getPatientByPhone(reminder.patientPhone);
+      const patient = await getPatientByName(reminder.patientName);
       if (patient) {
         setIsNewPatient(patient.isNewPatient || false);
         // Store patient details for booking
@@ -257,7 +257,6 @@ const Reminders = () => {
         patientAge: selectedReminder.patientAge || '',
         patientGender: selectedReminder.patientGender || '',
         patientPreviousVisits: [],
-        patientReasons: [],
         date: bookingDate,
         time: selectedSlot,
         duration: duration,
@@ -401,7 +400,7 @@ const Reminders = () => {
                       <h3>{reminder.patientName}</h3>
                       <p>📞 {reminder.patientPhone}</p>
                       <p>
-                        <FaCalendarAlt /> {reminder.date}
+                        <FaCalendarAlt /> {format(parseISO(reminder.date), 'dd-MM-yyyy')}
                       </p>
                       <p className="reminder-message">{reminder.message}</p>
                     </div>
@@ -463,7 +462,7 @@ const Reminders = () => {
                       <h3>{reminder.patientName}</h3>
                       <p>📞 {reminder.patientPhone}</p>
                       <p>
-                        <FaCalendarAlt /> {reminder.date}
+                        <FaCalendarAlt /> {format(parseISO(reminder.date), 'dd-MM-yyyy')}
                       </p>
                       <p className="reminder-message">{reminder.message}</p>
                     </div>

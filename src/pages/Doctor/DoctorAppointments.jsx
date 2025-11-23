@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
-import { getAllAppointments, updateAppointment, updatePatient, createMedicineReminderIfNeeded } from '../../firebase/firestore';
+import { getAllAppointments } from '../../firebase/firestore';
 import { useToast } from '../../contexts/ToastContext';
-import { FaCheckCircle, FaCalendarAlt, FaStickyNote, FaUserPlus, FaChevronLeft, FaChevronRight } from 'react-icons/fa';
+import { FaCalendarAlt, FaUserPlus, FaChevronLeft, FaChevronRight } from 'react-icons/fa';
 import { format, isSameDay, parseISO, startOfMonth, endOfMonth, eachDayOfInterval, addDays } from 'date-fns';
 import '../../styles/DoctorAppointments.css';
 
@@ -16,10 +16,6 @@ const formatTime = (time) => {
 const DoctorAppointments = () => {
   const toast = useToast();
   const [appointments, setAppointments] = useState([]);
-  const [selectedAppointment, setSelectedAppointment] = useState(null);
-  const [reasonForVisit, setReasonForVisit] = useState('');
-  const [nextVisitDate, setNextVisitDate] = useState('');
-  const [notes, setNotes] = useState('');
   
   // Calendar state
   const [currentMonth, setCurrentMonth] = useState(new Date());
@@ -32,76 +28,6 @@ const DoctorAppointments = () => {
 
     return unsubscribe;
   }, []);
-
-  const handleSelectAppointment = (apt) => {
-    setSelectedAppointment(apt);
-    setReasonForVisit(apt.reasonForVisit || '');
-    setNextVisitDate(apt.nextVisit || '');
-    setNotes(apt.notes || '');
-  };
-
-  const handleCompleteAppointment = async () => {
-    if (!selectedAppointment) return;
-
-    try {
-      // Update appointment
-      await updateAppointment(selectedAppointment.id, {
-        status: 'completed',
-        reasonForVisit,
-        nextVisit: nextVisitDate,
-        notes,
-        completedAt: new Date().toISOString()
-      });
-
-      // Update patient record with visit reason and mark as old patient
-      if (selectedAppointment.patientId) {
-        const patientRef = selectedAppointment.patientId;
-        const updateData = {
-          reasons: [...(selectedAppointment.patientReasons || []), reasonForVisit],
-          previousVisits: [
-            ...(selectedAppointment.patientPreviousVisits || []),
-            selectedAppointment.date
-          ]
-        };
-        
-        // Mark as old patient after first visit
-        if (selectedAppointment.isNewPatient) {
-          updateData.isNewPatient = false;
-        }
-        
-        await updatePatient(patientRef, updateData);
-      }
-
-      // Create medicine reminder if next visit date is set
-      if (nextVisitDate) {
-        const reminderResult = await createMedicineReminderIfNeeded({
-          patientName: selectedAppointment.patientName,
-          patientPhone: selectedAppointment.patientPhone,
-          patientId: selectedAppointment.patientId,
-          nextVisit: nextVisitDate
-        });
-
-        if (reminderResult.created) {
-          console.log('Medicine reminder created successfully');
-        } else {
-          console.log('Reminder creation skipped:', reminderResult.reason);
-        }
-      }
-
-      const completionMessage = selectedAppointment.isNewPatient 
-        ? 'Appointment completed successfully! Patient has been marked as returning patient for future visits.' 
-        : 'Appointment completed successfully!';
-      
-      toast.success(completionMessage);
-      setSelectedAppointment(null);
-      setReasonForVisit('');
-      setNextVisitDate('');
-      setNotes('');
-    } catch (error) {
-      console.error('Error completing appointment:', error);
-      toast.error('Failed to complete appointment');
-    }
-  };
 
   // Calendar functions
   const monthStart = startOfMonth(currentMonth);
@@ -216,7 +142,7 @@ const DoctorAppointments = () => {
         <div className="appointments-and-details-wrapper">
           <div className="selected-date-appointments-below">
             <h2>
-              Appointments for {format(parseISO(selectedDate), 'MMMM d, yyyy')}
+              Appointments for {format(parseISO(selectedDate), 'dd-MM-yyyy')}
             </h2>
             
             {selectedDateAppointments.length === 0 ? (
@@ -229,8 +155,7 @@ const DoctorAppointments = () => {
                 {selectedDateAppointments.map((apt) => (
                   <div
                     key={apt.id}
-                    className={`appointment-card ${selectedAppointment?.id === apt.id ? 'selected' : ''}`}
-                    onClick={() => handleSelectAppointment(apt)}
+                    className="appointment-card"
                   >
                     <div className="apt-header">
                       <div className="apt-title-row">
@@ -244,7 +169,19 @@ const DoctorAppointments = () => {
                       <span className={`status-badge ${apt.status}`}>{apt.status}</span>
                     </div>
                     <div className="apt-info">
-                      <p><FaCalendarAlt /> {apt.date} at {formatTime(apt.time)}</p>
+                      <p className="apt-datetime">
+                        <FaCalendarAlt /> {format(parseISO(apt.date), 'dd-MM-yyyy')} at {formatTime(apt.time)}
+                      </p>
+                      {apt.subSlot && (
+                        <span className={`sub-slot-badge-doctor slot-${apt.subSlot.toLowerCase()}`}>
+                          {apt.subSlot}
+                        </span>
+                      )}
+                      {apt.subSlotType && (
+                        <span className={`type-badge-doctor ${apt.subSlotType}`}>
+                          {apt.subSlotType === 'walkin' ? 'Walk-in' : 'Call'}
+                        </span>
+                      )}
                       <p>📞 {apt.patientPhone}</p>
                       {apt.patientAge && <p>👤 Age: {apt.patientAge}</p>}
                       {apt.patientGender && <p>⚥ Gender: {apt.patientGender}</p>}
@@ -255,106 +192,22 @@ const DoctorAppointments = () => {
               </div>
             )}
           </div>
-
-          {selectedAppointment && (
-            <div className="appointment-details-section">
-              <h2>Appointment Details</h2>
-              <div className="details-form">
-                <div className="form-group">
-                  <label>Patient Name</label>
-                  <input type="text" value={selectedAppointment.patientName} disabled />
-                </div>
-
-                <div className="form-group">
-                  <label>Phone</label>
-                  <input type="text" value={selectedAppointment.patientPhone} disabled />
-                </div>
-
-                <div className="form-row">
-                  <div className="form-group">
-                    <label>Age</label>
-                    <input type="text" value={selectedAppointment.patientAge || 'N/A'} disabled />
-                  </div>
-
-                  <div className="form-group">
-                    <label>Gender</label>
-                    <input type="text" value={selectedAppointment.patientGender || 'N/A'} disabled />
-                  </div>
-                </div>
-
-                <div className="form-group">
-                  <label>Date & Time</label>
-                  <input
-                    type="text"
-                    value={`${selectedAppointment.date} at ${formatTime(selectedAppointment.time)}`}
-                    disabled
-                  />
-                </div>
-
-                <div className="form-group">
-                  <label>
-                    <FaStickyNote /> Reason for Visit *
-                  </label>
-                  <textarea
-                    value={reasonForVisit}
-                    onChange={(e) => setReasonForVisit(e.target.value)}
-                    placeholder="Enter the reason for this visit..."
-                    rows="3"
-                    required
-                  />
-                </div>
-
-                <div className="form-group">
-                  <label>
-                    <FaCalendarAlt /> Next Visit Date (Optional)
-                  </label>
-                  <input
-                    type="date"
-                    value={nextVisitDate}
-                    onChange={(e) => setNextVisitDate(e.target.value)}
-                    min={format(new Date(), 'yyyy-MM-dd')}
-                  />
-                  <small>Setting this will create a reminder for staff one day before</small>
-                </div>
-
-                <div className="form-group">
-                  <label>Notes (Optional)</label>
-                  <textarea
-                    value={notes}
-                    onChange={(e) => setNotes(e.target.value)}
-                    placeholder="Add any additional notes..."
-                    rows="2"
-                  />
-                </div>
-
-                <button
-                  className="complete-appointment-btn"
-                  onClick={handleCompleteAppointment}
-                  disabled={!reasonForVisit}
-                >
-                  <FaCheckCircle /> Mark as Completed
-                </button>
-              </div>
-            </div>
-          )}
         </div>
       </div>
 
       <div className="completed-section">
         <h2>Recently Completed</h2>
         {completedAppointments.slice(0, 5).length === 0 ? (
-          <p className="empty-message">No completed appointments</p>
+          <p className="empty-message">No completed appointments for this date</p>
         ) : (
           <div className="completed-list">
             {completedAppointments.slice(0, 5).map((apt) => (
               <div key={apt.id} className="completed-item">
                 <div>
                   <h4>{apt.patientName}</h4>
-                  <p>{apt.date} at {formatTime(apt.time)}</p>
+                  <p>{format(parseISO(apt.date), 'dd-MM-yyyy')} at {formatTime(apt.time)}</p>
                 </div>
-                <div className="completed-badge">
-                  <FaCheckCircle /> Completed
-                </div>
+                <div className="completed-badge">✓ Completed</div>
               </div>
             ))}
           </div>

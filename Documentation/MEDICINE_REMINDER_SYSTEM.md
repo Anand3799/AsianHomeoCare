@@ -1,25 +1,24 @@
 # Medicine Reminder System - Complete Guide
 
 ## Overview
-The medicine reminder system automatically creates follow-up reminders when doctors complete appointments and set next visit dates. Staff can then call patients and book appointments directly from the reminder interface.
+The medicine reminder system automatically creates follow-up reminders when staff complete appointments and set next visit dates. Staff can then call patients and book appointments directly from the reminder interface.
 
 ## System Flow
 
-### 1. Doctor Completes Appointment with Next Visit Date
+### 1. Staff Completes Appointment with Next Visit Date
 
-**Location:** Doctor Portal → Appointments → Select Appointment → Complete
+**Location:** Staff Portal → Appointment Booking → Complete Button
 
 **Process:**
-1. Doctor selects an appointment
-2. Fills in:
-   - Reason for visit
+1. After doctor consultation, staff clicks "Complete" on appointment
+2. Fills in completion modal:
    - Next visit date
    - Notes
-3. Clicks "Complete Appointment"
+3. Clicks "Mark as Completed"
 
 **What Happens Automatically:**
 ```
-Doctor completes appointment with Next Visit Date
+Staff completes appointment with Next Visit Date
                 ↓
 System calls createMedicineReminderIfNeeded()
                 ↓
@@ -310,7 +309,7 @@ const [isBooking, setIsBooking] = useState(false);
 3. **Automatic Updates**: All connected portals update within 1-2 seconds
 
 ### Update Triggers:
-- Doctor completes appointment → Reminder appears in staff portal
+- Staff completes appointment → Reminder created for next day
 - Staff books appointment → Reminder marked complete
 - Staff marks complete → Reminder disappears from list
 - Any slot booking → Time slot availability updates
@@ -397,14 +396,14 @@ const [isBooking, setIsBooking] = useState(false);
 ## Testing Checklist
 
 ### Test 1: Auto-Create Reminder
-- [ ] Doctor completes appointment with next visit date
+- [ ] Staff completes appointment with next visit date
 - [ ] Check reminders collection in Firebase
 - [ ] Verify reminder appears with correct data
 - [ ] Confirm no duplicate if repeated
 
 ### Test 2: Real-Time Display
 - [ ] Open Staff portal
-- [ ] Doctor completes appointment (different session)
+- [ ] Staff completes appointment (different session)
 - [ ] Reminder appears without refresh
 - [ ] All fields display correctly
 

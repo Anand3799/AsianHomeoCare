@@ -103,7 +103,6 @@ Medical practitioners who manage their appointments, view patient records, and c
    - Registration date
    - Last visit date
    - Previous visit history
-   - Reasons for past visits
    - Current medical notes
    - Patient status (New/Returning)
 
@@ -186,7 +185,7 @@ Medical practitioners who manage their appointments, view patient records, and c
 #### **Appointment Status Types**
 - **Scheduled:** Newly booked appointments
 - **Rescheduled:** Appointments that were changed
-- **Completed:** Finished by doctor
+- **Completed:** Finished by staff
 - **Cancelled:** Cancelled appointments
 
 #### **Viewing Appointments**
@@ -210,6 +209,27 @@ Medical practitioners who manage their appointments, view patient records, and c
 5. Modify notes if needed
 6. Click **"Reschedule Appointment"**
 7. Status changes to "Rescheduled"
+
+#### **Completing an Appointment**
+
+**After the doctor finishes consultation:**
+
+1. Click **"Complete"** button on the appointment card
+2. Completion modal appears with patient details
+3. **Optional Fields:**
+   - **Next Visit Date:** Set future appointment date
+     - Creates automatic reminder one day before
+     - Use calendar picker to select date
+   - **Notes:** Add consultation notes, treatment details, observations
+4. Click **"Mark as Completed"** button
+5. System automatically:
+   - Changes appointment status to "Completed"
+   - Updates patient visit history
+   - **For New Patients:** Converts to returning patient status
+   - Creates medicine reminder if next visit date was set
+   - Displays success message
+
+**Important:** Only completed appointments are archived in patient history.
 
 #### **Deleting an Appointment**
 
@@ -258,7 +278,7 @@ Medical practitioners who manage their appointments, view patient records, and c
    - Patient name
    - Phone number
    - Scheduled date
-   - Message/reason
+   - Message/purpose
    - Action buttons
 
 #### **Creating a New General Reminder**
@@ -268,7 +288,7 @@ Medical practitioners who manage their appointments, view patient records, and c
    - **Patient Name:** Required
    - **Phone Number:** Required (10 digits)
    - **Reminder Date:** Required (when to show reminder)
-   - **Message:** Required (reason for reminder)
+   - **Message:** Required (purpose of reminder)
 3. Click **"Add Reminder"**
 4. Reminder will appear on the specified date
 
@@ -364,7 +384,7 @@ Each queue entry shows:
 - A patient can only be in the queue **once per day**
 - If patient is already in queue, system prevents duplicate entry
 - Warning message: "Patient is already in the call queue for today"
-- Patient can be re-added only after doctor marks them as "Completed"
+- Patient can be re-added only after staff marks them as "Completed"
 
 **Benefits of This Rule:**
 - Prevents confusion in queue order
@@ -396,7 +416,7 @@ The system displays:
 #### **Real-Time Synchronization**
 
 - Doctor sees same queue on their portal instantly
-- When doctor marks patient as "Completed", they disappear from both views
+- When staff marks appointment as "Completed", patient disappears from queue
 - Both staff and doctor see queue updates in real-time
 - No manual refresh needed
 
@@ -468,47 +488,23 @@ Each appointment shows:
 - Gender (read-only)
 - Date & Time (read-only)
 
-**Doctor Actions:**
+**Doctor View:**
 
-**1. Reason for Visit (Required)**
-- Text area for entering chief complaint
-- Required field - cannot complete without this
-- Examples:
-  - "Chronic headache for 2 weeks"
-  - "Skin rash on arms and legs"
-  - "Digestive issues - acidity"
-  - "Follow-up visit for previous treatment"
+Doctors can view appointment details but **cannot complete appointments**. The details panel shows:
+- Patient information (read-only)
+- Appointment date and time
+- Duration
+- Current status
+- Any existing notes
 
-**2. Next Visit Date (Optional)**
-- Select future date for follow-up
-- Calendar picker (cannot select past dates)
-- **Important:** Setting this creates automatic reminder for staff
-- Reminder appears one day before the scheduled visit
-- Leave blank if no follow-up needed
-
-**3. Additional Notes (Optional)**
-- Text area for detailed medical notes
-- Treatment prescribed
-- Observations
-- Special instructions
-- These notes are saved in patient history
-
-**4. Mark as Completed**
-- Click **"Mark as Completed"** button
-- **Button is disabled** until "Reason for Visit" is filled
-- This action:
-  - Completes the consultation
-  - Saves all entered information
-  - Updates patient's visit history
-  - **For New Patients:** Automatically changes status to "Returning Patient"
-  - Moves appointment to "Recently Completed" section
-  - Creates medicine reminder if next visit date was set
+**Note:** ℹ️ Appointment completion is now handled by staff members. After consultation, staff will complete the appointment and set the next visit date if needed.
 
 #### **New Patient Workflow**
 
 When consulting a new patient:
 1. Appointment shows ✨ NEW badge
-2. Complete consultation as usual
+2. Conduct consultation as usual
+3. After consultation, staff will complete the appointment
 3. After marking as complete:
    - System notification: "Patient has been marked as returning patient for future visits"
    - Patient's future appointments will show 15-minute duration
@@ -528,11 +524,9 @@ Located at bottom of page:
 
 #### **Important Notes**
 
-- Cannot mark appointment complete without entering reason
 - Once completed, appointment cannot be unmarked
 - All notes are permanently saved to patient record
 - Setting next visit date automatically handles reminders
-- System prevents duplicate reason entries in patient history
 
 ---
 
@@ -573,7 +567,7 @@ Located at bottom of page:
 **Returning Patients:**
 - No special badge
 - Have completed at least one visit
-- Show visit history and reasons
+- Show visit history
 
 #### **Viewing Detailed Patient History**
 
@@ -595,11 +589,6 @@ Located at bottom of page:
   - List of all past consultation dates
   - Chronologically ordered (newest first)
   - Click date to expand details
-  
-- **Reasons for Visits:**
-  - All chief complaints from past consultations
-  - What brought patient to clinic each time
-  - Helps identify recurring issues
   
 - **Notes from Past Consultations:**
   - Doctor's detailed notes
@@ -629,7 +618,6 @@ Located at bottom of page:
 
 **After Consultation:**
 - Your notes from completed appointments automatically appear here
-- Reasons entered during consultation are added to history
 - Next visit dates tracked automatically
 
 #### **Data Privacy**
@@ -685,7 +673,7 @@ The Call Queue shows patients who are physically present and waiting for consult
    - Provide medical advice
 
 3. **Complete the Call:**
-   - Click **"Mark as Completed"** button on patient's queue card
+   - Staff will mark as completed after consultation
    - Confirmation dialog appears
    - Confirm to complete
 
@@ -918,10 +906,9 @@ Before destructive actions, system asks confirmation:
 4. As patients arrive in queue:
    - Call first patient (#1)
    - Conduct consultation
-   - Enter reason for visit
    - Set next visit if needed
    - Add notes
-   - Mark as completed
+   - Staff marks as completed after consultation
    - Move to next patient
 5. Review patient records when needed
 6. End of day: Check completed consultations
@@ -942,7 +929,7 @@ Before destructive actions, system asks confirmation:
 2. Call patient for consultation
 3. Take detailed history (45 minutes)
 4. Enter consultation details
-5. Mark as completed
+5. Staff marks appointment as completed
 6. Patient automatically becomes "Returning Patient"
 
 ### **Appointment Booking Flow**
@@ -1015,7 +1002,6 @@ Before destructive actions, system asks confirmation:
 ### **For Doctors**
 
 1. **Consultations:**
-   - Always enter reason for visit (required)
    - Set next visit date when follow-up needed
    - Add detailed notes for future reference
    - Mark patients complete promptly
@@ -1049,10 +1035,7 @@ Before destructive actions, system asks confirmation:
 **A:** That time slot is already booked. Choose a different time or date. System prevents double-booking to avoid confusion.
 
 ### **Q: Patient already in queue today?**
-**A:** Patient can only be in queue once per day. They need to be completed by doctor first before being added again.
-
-### **Q: Why can't I mark appointment complete?**
-**A:** "Reason for Visit" field is mandatory. Doctor must enter chief complaint before completing consultation.
+**A:** Patient can only be in queue once per day. They need to be completed by staff first before being added again.
 
 ### **Q: Where did completed appointments go?**
 **A:** Check "Recently Completed" section at bottom. It shows completed appointments for the selected date only.

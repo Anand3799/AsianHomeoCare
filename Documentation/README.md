@@ -7,10 +7,9 @@ A comprehensive hospital management system built with React, Firebase, and React
 ### 👨‍⚕️ Doctor Portal
 - **Dashboard**: View today's appointments and call queue in real-time
 - **Appointments Management**: 
-  - Mark appointments as completed
-  - Add reason for visit (automatically saved to patient record)
-  - Set next visit date (creates reminder for staff)
-- **Patient Records**: View complete patient history including visit dates and reasons
+  - View appointment details (read-only)
+  - Track patient information and consultation history
+- **Patient Records**: View complete patient history including visit dates
 - **Call Queue**: See waiting calls in first-come-first-serve order
 
 ### 👩‍💼 Staff Portal
@@ -24,6 +23,9 @@ A comprehensive hospital management system built with React, Firebase, and React
   - Visual time slot selection
   - Real-time availability checking
   - Reschedule appointments (same-day allowed)
+  - **Complete appointments** after doctor consultation
+  - Set next visit date (creates automatic reminder)
+  - Add consultation notes
 - **Reminders**:
   - Medicine reminders (auto-generated for next-day visits)
   - General reminders for callbacks/follow-ups
@@ -166,11 +168,12 @@ Use the credentials you created in Step 4:
 
 ### Workflow
 
-1. **Staff** adds new patient or searches existing patient by phone
+1. **Staff** adds new patient or searches existing patient by name
 2. **Staff** books appointment (system auto-detects if new/returning patient)
 3. **Staff** can add patient to call queue when they call
 4. **Doctor** sees appointments and call queue in real-time
-5. **Doctor** marks appointment complete and adds visit reason
+5. **Doctor** conducts consultation
+6. **Staff** marks appointment complete and sets next visit date
 6. **Doctor** can set next visit date (auto-creates reminder for staff)
 7. **Staff** sees medicine reminders one day before next visit
 8. **Staff** can reschedule missed appointments

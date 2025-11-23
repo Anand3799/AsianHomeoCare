@@ -1,17 +1,20 @@
 import { useState, useEffect } from 'react';
 import {
   getAllPatients,
-  getPatientByPhone,
+  getPatientByName,
   addAppointment,
   updateAppointment,
   getAllAppointments,
   addPatient,
   bookAppointmentWithTransaction,
-  updateAppointmentWithTransaction
+  updateAppointmentWithTransaction,
+  updatePatient,
+  createMedicineReminderIfNeeded
 } from '../../firebase/firestore';
 import { useToast } from '../../contexts/ToastContext';
 import ConfirmDialog from '../../components/ConfirmDialog';
-import { FaCalendarPlus, FaEdit, FaStickyNote, FaChevronLeft, FaChevronRight, FaTrash, FaClock, FaCalendarAlt } from 'react-icons/fa';
+import PatientNameTypeahead from '../../components/PatientNameTypeahead';
+import { FaCalendarPlus, FaEdit, FaStickyNote, FaChevronLeft, FaChevronRight, FaTrash, FaClock, FaCalendarAlt, FaCheckCircle } from 'react-icons/fa';
 import { format, addDays, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, parseISO } from 'date-fns';
 import { deleteDoc, doc } from 'firebase/firestore';
 import { db } from '../../firebase/config';
@@ -36,19 +39,24 @@ const AppointmentBooking = () => {
   const [selectedDate, setSelectedDate] = useState(format(new Date(), 'yyyy-MM-dd'));
   const [isBooking, setIsBooking] = useState(false);
   const [confirmDialog, setConfirmDialog] = useState({ isOpen: false, appointmentId: null, patientName: '' });
+  const [showCompletionModal, setShowCompletionModal] = useState(false);
+  const [appointmentToComplete, setAppointmentToComplete] = useState(null);
+  const [completionData, setCompletionData] = useState({ nextVisitDate: '', notes: '' });
   
   const [formData, setFormData] = useState({
-    patientPhone: '',
     patientName: '',
+    patientPhone: '',
     date: format(new Date(), 'yyyy-MM-dd'),
-    timeSlots: [],
+    time: '',
+    subSlot: '',
+    subSlotType: 'walkin',
     notes: '',
     status: 'scheduled'
   });
 
   const [availableSlots, setAvailableSlots] = useState([]);
   const [isNewPatient, setIsNewPatient] = useState(true);
-  const [selectedSlots, setSelectedSlots] = useState([]);
+  const [selectedSlots, setSelectedSlots] = useState([]); // Array of { time, subSlot } for new patients, single for returning
 
   useEffect(() => {
     const unsubscribePatients = getAllPatients((data) => {
@@ -71,33 +79,41 @@ const AppointmentBooking = () => {
     }
   }, [selectedDate, appointments]);
 
-  const handlePhoneChange = async (phone) => {
-    setFormData({ ...formData, patientPhone: phone });
+  const handleNameChange = (name) => {
+    setFormData({ ...formData, patientName: name });
+  };
 
-    if (phone.length >= 10) {
-      const patient = await getPatientByPhone(phone);
-      if (patient) {
-        setIsNewPatient(patient.isNewPatient || false);
-        setFormData(prev => ({
-          ...prev,
-          patientName: patient.name,
-          patientId: patient.id,
-          patientAge: patient.age || '',
-          patientGender: patient.gender || '',
-          patientPreviousVisits: patient.previousVisits,
-          patientReasons: patient.reasons,
-          isNewPatient: patient.isNewPatient || false
-        }));
-      } else {
-        setIsNewPatient(true);
-        setFormData(prev => ({ 
-          ...prev, 
-          patientName: '',
-          patientAge: '',
-          patientGender: '',
-          isNewPatient: true
-        }));
-      }
+  const handlePatientSelect = (patient) => {
+    // Check if this is a brand new patient being added (not in database)
+    if (patient.isNew) {
+      setIsNewPatient(true);
+      setFormData(prev => ({
+        ...prev,
+        patientName: patient.name,
+        patientPhone: '',
+        patientId: null,
+        patientAge: '',
+        patientGender: '',
+        patientPreviousVisits: [],
+        isNewPatient: true
+      }));
+    } else {
+      // Check if patient has completed any visits
+      const hasCompletedVisits = patient.previousVisits && patient.previousVisits.length > 0;
+      // Patient is new if they have no previous visits OR if explicitly marked as new
+      const patientIsNew = !hasCompletedVisits;
+      
+      setIsNewPatient(patientIsNew);
+      setFormData(prev => ({
+        ...prev,
+        patientName: patient.name,
+        patientPhone: patient.phone,
+        patientId: patient.id,
+        patientAge: patient.age || '',
+        patientGender: patient.gender || '',
+        patientPreviousVisits: patient.previousVisits || [],
+        isNewPatient: patientIsNew
+      }));
     }
   };
 
@@ -105,88 +121,105 @@ const AppointmentBooking = () => {
     const slots = [];
     const slotDuration = 15; // 15 minutes per slot
 
-    // Define two time slots
-    // Slot 1: 10:30 AM to 1:30 PM (10:30 - 13:30)
-    // Slot 2: 5:00 PM to 9:00 PM (17:00 - 21:00)
-    const timeSlots = [
-      { start: { hour: 10, minute: 30 }, end: { hour: 13, minute: 30 } }, // Morning slot
-      { start: { hour: 17, minute: 0 }, end: { hour: 21, minute: 0 } }    // Evening slot
-    ];
+    // Continuous slots from 09:30 AM to 08:45 PM (09:30 - 20:45)
+    const startMinutes = 9 * 60 + 30; // 09:30
+    const endMinutes = 20 * 60 + 45; // 20:45
 
     // Get booked appointments for selected date
     const bookedAppointments = appointments.filter(
-      apt => apt.date === selectedDate && apt.status !== 'cancelled'
+      apt => apt.date === selectedDate && (apt.status === 'scheduled' || apt.status === 'rescheduled')
     );
 
-    // Create a set of booked slot times
-    const bookedSlotTimes = new Set();
+    // Create a map of booked sub-slots: time -> { A: appointment, B: appointment }
+    const bookedSubSlots = new Map();
     bookedAppointments.forEach(apt => {
-      const [hours, minutes] = apt.time.split(':').map(Number);
-      const startMinutes = hours * 60 + minutes;
-      const duration = apt.duration || 15;
-      const slotsNeeded = Math.ceil(duration / slotDuration);
+      const timeKey = apt.time;
+      if (!bookedSubSlots.has(timeKey)) {
+        bookedSubSlots.set(timeKey, { A: null, B: null });
+      }
+      const subSlot = apt.subSlot || 'A';
+      bookedSubSlots.get(timeKey)[subSlot] = apt;
+    });
+
+    // Generate continuous time slots with dual sub-slots (A and B)
+    for (let currentMinutes = startMinutes; currentMinutes <= endMinutes; currentMinutes += slotDuration) {
+      const hour = Math.floor(currentMinutes / 60);
+      const minute = currentMinutes % 60;
+      const timeStr = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
       
-      for (let i = 0; i < slotsNeeded; i++) {
-        const slotMinutes = startMinutes + (i * slotDuration);
-        const slotHour = Math.floor(slotMinutes / 60);
-        const slotMin = slotMinutes % 60;
-        const timeStr = `${slotHour.toString().padStart(2, '0')}:${slotMin.toString().padStart(2, '0')}`;
-        bookedSlotTimes.add(timeStr);
-      }
-    });
-
-    // Generate slots for each time period
-    timeSlots.forEach(timeSlot => {
-      const startMinutes = timeSlot.start.hour * 60 + timeSlot.start.minute;
-      const endMinutes = timeSlot.end.hour * 60 + timeSlot.end.minute;
-
-      for (let currentMinutes = startMinutes; currentMinutes < endMinutes; currentMinutes += slotDuration) {
-        const hour = Math.floor(currentMinutes / 60);
-        const minute = currentMinutes % 60;
-        const timeStr = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
-        
-        slots.push({
-          time: timeStr,
-          available: !bookedSlotTimes.has(timeStr),
-          display: format(new Date(2000, 0, 1, hour, minute), 'h:mm a')
-        });
-      }
-    });
+      const booked = bookedSubSlots.get(timeStr) || { A: null, B: null };
+      
+      slots.push({
+        time: timeStr,
+        display: format(new Date(2000, 0, 1, hour, minute), 'h:mm a'),
+        subSlotA: {
+          available: !booked.A,
+          appointment: booked.A,
+          type: 'walkin' // A is always walk-in only
+        },
+        subSlotB: {
+          available: !booked.B,
+          appointment: booked.B,
+          type: booked.B?.subSlotType || 'both' // B can be walk-in or call
+        }
+      });
+    }
 
     setAvailableSlots(slots);
   };
 
-  const handleSlotClick = (slot) => {
-    if (!slot.available) return;
-
-    // If clicking the same slot, deselect it
-    if (selectedSlots.includes(slot.time)) {
-      setSelectedSlots([]);
-      setFormData({ ...formData, timeSlots: [], date: selectedDate });
+  const handleSubSlotClick = (time, subSlot, isAvailable) => {
+    if (!isAvailable) {
+      toast.warning(`Sub-slot ${subSlot} at ${format(parseISO(`2000-01-01T${time}`), 'h:mm a')} is already booked.`);
       return;
     }
 
-    const slotsNeeded = isNewPatient ? 3 : 1; // 45 min for new, 15 min for old
-    const slotIndex = availableSlots.findIndex(s => s.time === slot.time);
-    
-    // Check if we can book the required consecutive slots
-    let canBook = true;
-    const slotsToBook = [];
-    
-    for (let i = 0; i < slotsNeeded; i++) {
-      const checkSlot = availableSlots[slotIndex + i];
-      if (!checkSlot || !checkSlot.available) {
-        canBook = false;
-        break;
-      }
-      slotsToBook.push(checkSlot.time);
-    }
+    const slotKey = `${time}-${subSlot}`;
+    const isAlreadySelected = selectedSlots.some(s => s.time === time && s.subSlot === subSlot);
 
-    if (canBook) {
-      setSelectedSlots(slotsToBook);
-      setFormData({ ...formData, timeSlots: slotsToBook, date: selectedDate });
+    if (isNewPatient) {
+      // New patients can select multiple slots
+      if (isAlreadySelected) {
+        // Deselect this slot
+        const updatedSlots = selectedSlots.filter(s => !(s.time === time && s.subSlot === subSlot));
+        setSelectedSlots(updatedSlots);
+        if (updatedSlots.length === 0) {
+          setFormData({ ...formData, time: '', subSlot: '', subSlotType: 'walkin', date: selectedDate });
+        }
+      } else {
+        // Add this slot
+        const slotType = subSlot === 'A' ? 'walkin' : formData.subSlotType || 'walkin';
+        const newSlots = [...selectedSlots, { time, subSlot, subSlotType: slotType }];
+        setSelectedSlots(newSlots);
+        // Update formData with first slot details for display
+        if (!formData.time) {
+          setFormData({ 
+            ...formData, 
+            time, 
+            subSlot, 
+            subSlotType: slotType,
+            date: selectedDate 
+          });
+        }
+      }
     } else {
-      toast.warning(`Cannot book ${slotsNeeded} consecutive slots. Please select another time.`);
+      // Returning patients can only select one slot
+      if (isAlreadySelected) {
+        // Deselect
+        setSelectedSlots([]);
+        setFormData({ ...formData, time: '', subSlot: '', subSlotType: 'walkin', date: selectedDate });
+      } else {
+        // Select single slot
+        const slotType = subSlot === 'A' ? 'walkin' : formData.subSlotType || 'walkin';
+        setSelectedSlots([{ time, subSlot, subSlotType: slotType }]);
+        setFormData({ 
+          ...formData, 
+          time, 
+          subSlot, 
+          subSlotType: slotType,
+          date: selectedDate 
+        });
+      }
     }
   };
 
@@ -194,7 +227,7 @@ const AppointmentBooking = () => {
     e.preventDefault();
 
     if (selectedSlots.length === 0) {
-      toast.warning('Please select a time slot');
+      toast.warning('Please select at least one time slot and sub-slot (A or B)');
       return;
     }
 
@@ -202,18 +235,17 @@ const AppointmentBooking = () => {
       return; // Prevent double submission
     }
 
-    const duration = selectedSlots.length * 15;
-    const startTime = selectedSlots[0];
-
     setIsBooking(true);
 
     try {
       if (isRescheduling && selectedAppointment) {
-        // Use transaction-based update for rescheduling
+        // Use transaction-based update for rescheduling (single slot only)
+        const firstSlot = selectedSlots[0];
         await updateAppointmentWithTransaction(selectedAppointment.id, {
           date: selectedDate,
-          time: startTime,
-          duration: duration,
+          time: firstSlot.time,
+          subSlot: firstSlot.subSlot,
+          subSlotType: firstSlot.subSlotType,
           notes: formData.notes,
           status: 'rescheduled'
         });
@@ -234,38 +266,42 @@ const AppointmentBooking = () => {
             registrationDate: format(new Date(), 'yyyy-MM-dd'),
             lastVisit: selectedDate,
             previousVisits: [],
-            reasons: [],
             notes: formData.notes || 'Patient registered during appointment booking',
             isNewPatient: true
           };
           
           const newPatientId = await addPatient(newPatient);
-          patientId = newPatientId;
+          patientId = newPatientId.id;
           
           console.log('New patient added to database:', newPatientId);
         }
 
-        // Use transaction-based booking to prevent double bookings
-        await bookAppointmentWithTransaction({
-          patientId: patientId || null,
-          patientName: formData.patientName,
-          patientPhone: formData.patientPhone,
-          patientAge: formData.patientAge || '',
-          patientGender: formData.patientGender || '',
-          patientPreviousVisits: formData.patientPreviousVisits || [],
-          patientReasons: formData.patientReasons || [],
-          date: selectedDate,
-          time: startTime,
-          duration: duration,
-          status: 'scheduled',
-          notes: formData.notes || '',
-          isNewPatient: isNewPatient
-        });
+        // Book all selected slots
+        const bookingPromises = selectedSlots.map(slot => 
+          bookAppointmentWithTransaction({
+            patientId: patientId || null,
+            patientName: formData.patientName,
+            patientPhone: formData.patientPhone,
+            patientAge: formData.patientAge || '',
+            patientGender: formData.patientGender || '',
+            patientPreviousVisits: formData.patientPreviousVisits || [],
+            date: selectedDate,
+            time: slot.time,
+            subSlot: slot.subSlot,
+            subSlotType: slot.subSlotType,
+            status: 'scheduled',
+            notes: formData.notes || '',
+            isNewPatient: isNewPatient,
+            bookedBy: 'staff'
+          })
+        );
+
+        await Promise.all(bookingPromises);
         
         if (isNewPatient && !formData.patientId) {
-          toast.success('New patient added and appointment booked successfully!');
+          toast.success(`New patient added and ${selectedSlots.length} appointment${selectedSlots.length > 1 ? 's' : ''} booked successfully!`);
         } else {
-          toast.success('Appointment booked successfully!');
+          toast.success(`${selectedSlots.length} appointment${selectedSlots.length > 1 ? 's' : ''} booked successfully!`);
         }
       }
 
@@ -292,15 +328,16 @@ const AppointmentBooking = () => {
     setIsRescheduling(true);
     setIsNewPatient(false); // Existing appointment, so not a new patient
     setFormData({
-      patientPhone: appointment.patientPhone,
       patientName: appointment.patientName,
+      patientPhone: appointment.patientPhone,
       patientId: appointment.patientId,
       patientAge: appointment.patientAge || '',
       patientGender: appointment.patientGender || '',
       patientPreviousVisits: appointment.patientPreviousVisits || [],
-      patientReasons: appointment.patientReasons || [],
       date: appointment.date,
-      timeSlots: [],
+      time: '',
+      subSlot: '',
+      subSlotType: appointment.subSlotType || 'walkin',
       notes: appointment.notes || '',
       status: appointment.status,
       isNewPatient: false
@@ -308,7 +345,6 @@ const AppointmentBooking = () => {
     setSelectedDate(appointment.date);
     setSelectedSlots([]);
     setShowBookingForm(false); // Don't show modal
-    setIsNewPatient(appointment.duration > 15);
     // Scroll to top to show the booking form
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -334,12 +370,88 @@ const AppointmentBooking = () => {
     setConfirmDialog({ isOpen: false, appointmentId: null, patientName: '' });
   };
 
+  const handleOpenCompletionModal = (apt) => {
+    setAppointmentToComplete(apt);
+    setCompletionData({ nextVisitDate: apt.nextVisit || '', notes: apt.notes || '' });
+    setShowCompletionModal(true);
+  };
+
+  const handleCompleteAppointment = async () => {
+    if (!appointmentToComplete) return;
+
+    try {
+      // Update appointment
+      await updateAppointment(appointmentToComplete.id, {
+        status: 'completed',
+        nextVisit: completionData.nextVisitDate,
+        notes: completionData.notes,
+        completedAt: new Date().toISOString()
+      });
+
+      // Update patient record and mark as old patient
+      if (appointmentToComplete.patientId) {
+        const patientRef = appointmentToComplete.patientId;
+        
+        // Find the patient in the patients array to get current previousVisits
+        const currentPatient = patients.find(p => p.id === patientRef);
+        const existingVisits = currentPatient?.previousVisits || [];
+        
+        // Only add the visit date if it's not already in the array
+        const visitDate = appointmentToComplete.date;
+        const updatedVisits = existingVisits.includes(visitDate) 
+          ? existingVisits 
+          : [...existingVisits, visitDate];
+        
+        const updateData = {
+          previousVisits: updatedVisits
+        };
+        
+        // Mark as old patient after first visit
+        if (appointmentToComplete.isNewPatient) {
+          updateData.isNewPatient = false;
+        }
+        
+        await updatePatient(patientRef, updateData);
+      }
+
+      // Create medicine reminder if next visit date is set
+      if (completionData.nextVisitDate) {
+        const reminderResult = await createMedicineReminderIfNeeded({
+          patientName: appointmentToComplete.patientName,
+          patientPhone: appointmentToComplete.patientPhone,
+          patientId: appointmentToComplete.patientId,
+          nextVisit: completionData.nextVisitDate
+        });
+
+        if (reminderResult.created) {
+          console.log('Medicine reminder created successfully');
+        } else {
+          console.log('Reminder creation skipped:', reminderResult.reason);
+        }
+      }
+
+      const completionMessage = appointmentToComplete.isNewPatient 
+        ? 'Appointment completed successfully! Patient has been marked as returning patient for future visits.' 
+        : 'Appointment completed successfully!';
+      
+      toast.success(completionMessage);
+      setShowCompletionModal(false);
+      setAppointmentToComplete(null);
+      setCompletionData({ nextVisitDate: '', notes: '' });
+    } catch (error) {
+      console.error('Error completing appointment:', error);
+      toast.error('Failed to complete appointment');
+    }
+  };
+
   const resetForm = () => {
     setFormData({
-      patientPhone: '',
       patientName: '',
+      patientPhone: '',
       date: format(new Date(), 'yyyy-MM-dd'),
-      timeSlots: [],
+      time: '',
+      subSlot: '',
+      subSlotType: 'walkin',
       notes: '',
       status: 'scheduled'
     });
@@ -441,7 +553,7 @@ const AppointmentBooking = () => {
                   {daysInMonth.map((day) => (
                     <div
                       key={day.toString()}
-                      className={`calendar-day ${isSameDay(parseISO(selectedDate), day) ? 'selected' : ''} ${
+                      className={`calendar-day ${selectedDate && isSameDay(new Date(selectedDate + 'T00:00:00'), day) ? 'selected' : ''} ${
                         day < new Date().setHours(0,0,0,0) ? 'past' : ''
                       }`}
                       onClick={() => day >= new Date().setHours(0,0,0,0) && selectDate(day)}
@@ -454,7 +566,7 @@ const AppointmentBooking = () => {
 
               <div className="time-slots-section">
                 <h4>
-                  {format(parseISO(selectedDate), 'EEEE, MMMM dd')}
+                  {selectedDate && format(new Date(selectedDate + 'T00:00:00'), 'EEEE, MMMM dd')}
                   <span className="slot-legend">
                     <span><span className="legend-free"></span> Free</span>
                     <span><span className="legend-booked"></span> Booked</span>
@@ -463,38 +575,83 @@ const AppointmentBooking = () => {
                     </span>
                   </span>
                 </h4>
-                <div className="slots-grid">
-                  {availableSlots.map((slot, index) => {
-                    const isSelected = selectedSlots.includes(slot.time);
-                    const isInSelectedRange = selectedSlots.length > 0 && 
-                      selectedSlots.includes(slot.time);
-                    
-                    // Check if this is the last afternoon slot (1:15 PM / 13:15)
-                    const isLastAfternoonSlot = slot.time === "13:15";
-                    
-                    return (
-                      <>
-                        <button
-                          key={slot.time}
-                          className={`time-slot-btn ${!slot.available ? 'booked' : 'free'} ${
-                            isSelected || isInSelectedRange ? 'selected' : ''
-                          }`}
-                          onClick={() => handleSlotClick(slot)}
-                          disabled={!slot.available}
-                        >
-                          <div className="slot-time">{slot.display}</div>
-                          <div className="slot-status">
-                            {!slot.available ? 'Booked' : isInSelectedRange ? 'Selected' : 'Free'}
-                          </div>
-                        </button>
-                        {isLastAfternoonSlot && (
-                          <div className="slot-separator">
-                            <span>Evening Slots</span>
-                          </div>
-                        )}
-                      </>
-                    );
-                  })}
+                {isNewPatient && (
+                  <p style={{ fontSize: '0.875rem', color: '#0ea5e9', marginTop: '0.5rem', marginBottom: '0.5rem' }}>
+                    💡 New patients can select multiple time slots (click multiple slots to book consecutive appointments)
+                  </p>
+                )}
+                <div className="slots-grid-dual">
+                  {availableSlots.length === 0 ? (
+                    <div style={{ padding: '2rem', textAlign: 'center', color: '#6b7280' }}>
+                      <p>Loading time slots...</p>
+                      <p style={{ fontSize: '0.875rem', marginTop: '0.5rem' }}>
+                        Select a date from the calendar above
+                      </p>
+                    </div>
+                  ) : (
+                    availableSlots.map((slot, index) => {
+                      const isSlotASelected = selectedSlots.some(s => s.time === slot.time && s.subSlot === 'A');
+                      const isSlotBSelected = selectedSlots.some(s => s.time === slot.time && s.subSlot === 'B');
+                      
+                      return (
+                        <div key={slot.time} className="dual-slot-container">
+                        <div className="slot-time-label">{slot.display}</div>
+                        <div className="sub-slots-row">
+                          {/* Sub-slot A - Walk-in only */}
+                          <button
+                            type="button"
+                            className={`sub-slot-btn sub-slot-a ${
+                              !slot.subSlotA.available ? 'booked' : ''
+                            } ${isSlotASelected ? 'selected' : ''}`}
+                            onClick={() => handleSubSlotClick(slot.time, 'A', slot.subSlotA.available)}
+                            disabled={!slot.subSlotA.available}
+                            title={slot.subSlotA.available ? 'Sub-slot A - Walk-in only' : `Booked: ${slot.subSlotA.appointment?.patientName}`}
+                          >
+                            <div className="sub-slot-header">
+                              <span className="sub-slot-label">A</span>
+                              <span className="sub-slot-type-badge walkin">Walk-in</span>
+                            </div>
+                            {!slot.subSlotA.available && slot.subSlotA.appointment ? (
+                              <div className="sub-slot-patient">{slot.subSlotA.appointment.patientName}</div>
+                            ) : (
+                              <div className="sub-slot-status">
+                                {isSlotASelected ? 'Selected' : 'Available'}
+                              </div>
+                            )}
+                          </button>
+
+                          {/* Sub-slot B - Walk-in or Call */}
+                          <button
+                            type="button"
+                            className={`sub-slot-btn sub-slot-b ${
+                              !slot.subSlotB.available ? 'booked' : ''
+                            } ${isSlotBSelected ? 'selected' : ''}`}
+                            onClick={() => handleSubSlotClick(slot.time, 'B', slot.subSlotB.available)}
+                            disabled={!slot.subSlotB.available}
+                            title={slot.subSlotB.available ? 'Sub-slot B - Walk-in or Call' : `Booked: ${slot.subSlotB.appointment?.patientName} (${slot.subSlotB.appointment?.subSlotType})`}
+                          >
+                            <div className="sub-slot-header">
+                              <span className="sub-slot-label">B</span>
+                              <span className="sub-slot-type-badge both">Walk-in/Call</span>
+                            </div>
+                            {!slot.subSlotB.available && slot.subSlotB.appointment ? (
+                              <>
+                                <div className="sub-slot-patient">{slot.subSlotB.appointment.patientName}</div>
+                                <span className={`appointment-type-badge ${slot.subSlotB.appointment.subSlotType}`}>
+                                  {slot.subSlotB.appointment.subSlotType === 'walkin' ? 'Walk-in' : 'Call'}
+                                </span>
+                              </>
+                            ) : (
+                              <div className="sub-slot-status">
+                                {isSlotBSelected ? 'Selected' : 'Available'}
+                              </div>
+                            )}
+                          </button>
+                        </div>
+                      </div>
+                      );
+                    })
+                  )}
                 </div>
               </div>
             </div>
@@ -503,34 +660,62 @@ const AppointmentBooking = () => {
             <div className="form-section">
               <form onSubmit={handleBookAppointment} className="booking-form">
                 <div className="form-group">
-                  <label>Phone Number *</label>
-                  <input
-                    type="tel"
-                    value={formData.patientPhone}
-                    onChange={(e) => handlePhoneChange(e.target.value)}
-                    placeholder="Enter phone number"
-                    required
+                  <label>Patient Name *</label>
+                  <PatientNameTypeahead
+                    value={formData.patientName}
+                    onChange={handleNameChange}
+                    onSelect={handlePatientSelect}
+                    placeholder="Type patient name (2+ characters for suggestions)"
                     disabled={isRescheduling}
+                    required={true}
                   />
-                  {formData.patientPhone.length >= 10 && (
+                  {formData.patientId && (
                     <small className={isNewPatient ? 'new-patient-badge' : 'returning-patient-badge'}>
-                      {isNewPatient ? '✨ New Patient (45 min - 3 slots)' : '✓ Returning Patient (15 min - 1 slot)'}
+                      {isNewPatient ? '✨ New Patient' : '✓ Returning Patient'}
                     </small>
                   )}
                 </div>
 
                 <div className="form-group">
-                  <label>Patient Name *</label>
+                  <label>Phone Number *</label>
                   <input
-                    type="text"
-                    value={formData.patientName}
-                    onChange={(e) => setFormData({ ...formData, patientName: e.target.value })}
-                    placeholder="Enter patient name"
+                    type="tel"
+                    value={formData.patientPhone}
+                    onChange={(e) => setFormData({ ...formData, patientPhone: e.target.value })}
+                    placeholder="Enter phone number"
                     required
                     disabled={!isNewPatient}
                     readOnly={!isNewPatient}
                   />
                 </div>
+
+                {selectedSlots.length > 0 && selectedSlots.some(s => s.subSlot === 'B') && (
+                  <div className="form-group">
+                    <label>Appointment Type * (Sub-slot B only)</label>
+                    <div className="type-selector">
+                      <label className="type-option">
+                        <input
+                          type="radio"
+                          name="subSlotType"
+                          value="walkin"
+                          checked={formData.subSlotType === 'walkin'}
+                          onChange={(e) => setFormData({ ...formData, subSlotType: e.target.value })}
+                        />
+                        <span className="type-label">Walk-in</span>
+                      </label>
+                      <label className="type-option">
+                        <input
+                          type="radio"
+                          name="subSlotType"
+                          value="call"
+                          checked={formData.subSlotType === 'call'}
+                          onChange={(e) => setFormData({ ...formData, subSlotType: e.target.value })}
+                        />
+                        <span className="type-label">Call</span>
+                      </label>
+                    </div>
+                  </div>
+                )}
 
                 <div className="form-row">
                   <div className="form-group">
@@ -565,13 +750,18 @@ const AppointmentBooking = () => {
                 </div>
 
                 <div className="form-group">
-                  <label>Selected Date & Time</label>
+                  <label>Selected Date & Time {isNewPatient && selectedSlots.length > 0 && `(${selectedSlots.length} slot${selectedSlots.length > 1 ? 's' : ''})`}</label>
                   <div className="selected-info">
-                    <p><strong>Date:</strong> {format(parseISO(selectedDate), 'MMMM dd, yyyy')}</p>
+                    <p><strong>Date:</strong> {selectedDate && format(new Date(selectedDate + 'T00:00:00'), 'dd-MM-yyyy')}</p>
                     {selectedSlots.length > 0 && (
                       <>
-                        <p><strong>Time:</strong> {availableSlots.find(s => s.time === selectedSlots[0])?.display}</p>
-                        <p><strong>Duration:</strong> {selectedSlots.length * 15} minutes</p>
+                        {selectedSlots.map((slot, idx) => (
+                          <div key={`${slot.time}-${slot.subSlot}`} style={{ marginTop: idx > 0 ? '0.5rem' : '0', paddingTop: idx > 0 ? '0.5rem' : '0', borderTop: idx > 0 ? '1px solid #e5e7eb' : 'none' }}>
+                            <p><strong>Time {selectedSlots.length > 1 ? `${idx + 1}:` : ':'}</strong> {availableSlots.find(s => s.time === slot.time)?.display}</p>
+                            <p><strong>Sub-slot:</strong> {slot.subSlot}</p>
+                            <p><strong>Type:</strong> {slot.subSlotType === 'walkin' ? 'Walk-in' : 'Call'}</p>
+                          </div>
+                        ))}
                       </>
                     )}
                   </div>
@@ -595,7 +785,7 @@ const AppointmentBooking = () => {
                     className="save-btn" 
                     disabled={selectedSlots.length === 0 || isBooking}
                   >
-                    {isBooking ? 'Processing...' : (isRescheduling ? 'Reschedule' : 'Book')} Appointment
+                    {isBooking ? 'Processing...' : (isRescheduling ? 'Reschedule' : 'Book')} Appointment{selectedSlots.length > 1 ? 's' : ''}
                   </button>
                   <button type="button" className="cancel-btn" onClick={resetForm} disabled={isBooking}>
                     Cancel
@@ -645,7 +835,7 @@ const AppointmentBooking = () => {
                   
                   {/* Actual days */}
                   {daysInMonth.map((day) => {
-                    const isSelected = isSameDay(day, parseISO(selectedDate));
+                    const isSelected = selectedDate && isSameDay(day, new Date(selectedDate + 'T00:00:00'));
                     const isToday = isSameDay(day, new Date());
                     const appointmentCount = getAppointmentCountForDate(day);
                     
@@ -679,7 +869,7 @@ const AppointmentBooking = () => {
           {/* Selected Date Appointments Below Calendar */}
           <div className="selected-date-appointments-below">
             <h3>
-              Appointments for {format(parseISO(selectedDate), 'MMMM d, yyyy')}
+              Appointments for {selectedDate && format(new Date(selectedDate + 'T00:00:00'), 'dd-MM-yyyy')}
             </h3>
             
             {selectedDateAppointments.length === 0 ? (
@@ -701,8 +891,24 @@ const AppointmentBooking = () => {
                     <div className="appointment-card-body">
                       <div className="appointment-detail">
                         <FaClock className="detail-icon" />
-                        <span>{formatTime(apt.time)} • {apt.duration} mins</span>
+                        <span>{formatTime(apt.time)}</span>
+                        {apt.subSlot && (
+                          <span className={`sub-slot-badge slot-${apt.subSlot.toLowerCase()}`}>
+                            Sub-slot {apt.subSlot}
+                          </span>
+                        )}
+                        {apt.subSlotType && (
+                          <span className={`type-badge ${apt.subSlotType}`}>
+                            {apt.subSlotType === 'walkin' ? 'Walk-in' : 'Call'}
+                          </span>
+                        )}
                       </div>
+                      {apt.nextVisit && (
+                        <div className="appointment-detail">
+                          <FaCalendarAlt className="detail-icon" />
+                          <span>Next Visit: {format(parseISO(apt.nextVisit), 'dd-MM-yyyy')}</span>
+                        </div>
+                      )}
                       {apt.notes && (
                         <div className="appointment-detail">
                           <FaStickyNote className="detail-icon" />
@@ -715,6 +921,14 @@ const AppointmentBooking = () => {
                     </div>
                     
                     <div className="appointment-card-actions">
+                      {apt.status !== 'completed' && (
+                        <button
+                          className="complete-btn"
+                          onClick={() => handleOpenCompletionModal(apt)}
+                        >
+                          <FaCheckCircle /> Complete
+                        </button>
+                      )}
                       <button
                         className="reschedule-btn"
                         onClick={() => handleReschedule(apt)}
@@ -732,6 +946,58 @@ const AppointmentBooking = () => {
                 ))}
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Completion Modal */}
+      {showCompletionModal && appointmentToComplete && (
+        <div className="modal-overlay" onClick={() => setShowCompletionModal(false)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2>Complete Appointment</h2>
+              <button className="close-btn" onClick={() => setShowCompletionModal(false)}>×</button>
+            </div>
+            
+            <div className="modal-body">
+              <div className="patient-summary">
+                <h3>{appointmentToComplete.patientName}</h3>
+                <p>{appointmentToComplete.patientPhone}</p>
+                <p>{format(parseISO(appointmentToComplete.date), 'dd-MM-yyyy')} at {formatTime(appointmentToComplete.time)}</p>
+              </div>
+
+              <div className="form-group">
+                <label>
+                  <FaCalendarAlt /> Next Visit Date (Optional)
+                </label>
+                <input
+                  type="date"
+                  value={completionData.nextVisitDate}
+                  onChange={(e) => setCompletionData({ ...completionData, nextVisitDate: e.target.value })}
+                  min={format(new Date(), 'yyyy-MM-dd')}
+                />
+                <small>Setting this will create a reminder for staff one day before</small>
+              </div>
+
+              <div className="form-group">
+                <label><FaStickyNote /> Notes (Optional)</label>
+                <textarea
+                  value={completionData.notes}
+                  onChange={(e) => setCompletionData({ ...completionData, notes: e.target.value })}
+                  placeholder="Add any additional notes..."
+                  rows="4"
+                />
+              </div>
+
+              <div className="modal-actions">
+                <button className="cancel-btn" onClick={() => setShowCompletionModal(false)}>
+                  Cancel
+                </button>
+                <button className="complete-appointment-btn" onClick={handleCompleteAppointment}>
+                  <FaCheckCircle /> Mark as Completed
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}

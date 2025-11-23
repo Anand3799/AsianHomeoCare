@@ -17,7 +17,7 @@ The New Patient Workflow system automatically identifies, tracks, and manages ne
 - Different treatment duration (45 min for new, 15 min for returning)
 
 ### 3. **Automatic Status Conversion**
-- After doctor completes first appointment, patient becomes "returning patient"
+- After staff completes first appointment, patient becomes "returning patient"
 - `isNewPatient` flag automatically set to `false`
 - Future appointments automatically show correct patient type
 
@@ -67,9 +67,8 @@ The New Patient Workflow system automatically identifies, tracks, and manages ne
    - Patient name
    - Golden badge: "🆕 NEW" with user-plus icon
    - 45-minute duration
-3. Doctor knows this is first-time patient
-4. Doctor completes appointment and sets:
-   - Reason for visit
+3. Doctor knows this is first-time patient and conducts consultation
+4. After consultation, **staff completes appointment** and sets:
    - Next visit date (if needed)
    - Notes
 5. On completion:
@@ -106,8 +105,7 @@ The New Patient Workflow system automatically identifies, tracks, and manages ne
   address: "123 Main St",
   isNewPatient: true,  // ← Key field
   createdAt: Timestamp,
-  previousVisits: [],
-  reasons: []
+  previousVisits: []
 }
 ```
 
@@ -270,7 +268,6 @@ const handleCompleteAppointment = async () => {
   // Update appointment as completed
   await updateAppointment(selectedAppointment.id, {
     status: 'completed',
-    reasonForVisit,
     nextVisit: nextVisitDate,
     notes,
     completedAt: new Date().toISOString()
@@ -279,7 +276,6 @@ const handleCompleteAppointment = async () => {
   // Update patient record
   if (selectedAppointment.patientId) {
     const updateData = {
-      reasons: [...existingReasons, reasonForVisit],
       previousVisits: [...existingVisits, selectedAppointment.date]
     };
     
@@ -509,11 +505,10 @@ const handleCompleteAppointment = async () => {
 - [ ] Book appointment
 - [ ] Verify appointment created with duration: 45
 
-### Test 3: Doctor Completes New Patient Appointment
+### Test 3: Staff Completes New Patient Appointment
 - [ ] Doctor opens appointment list
 - [ ] Verify appointment shows "[✨ NEW]" badge
 - [ ] Click appointment to view details
-- [ ] Enter reason for visit
 - [ ] Set next visit date (optional)
 - [ ] Add notes
 - [ ] Click "Complete Appointment"

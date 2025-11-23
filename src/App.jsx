@@ -9,13 +9,18 @@ import StaffLayout from './components/StaffLayout';
 import Login from './pages/Login';
 import DoctorDashboard from './pages/Doctor/DoctorDashboard';
 import DoctorAppointments from './pages/Doctor/DoctorAppointments';
+import DoctorAppointmentBooking from './pages/Doctor/AppointmentBooking';
 import PatientRecords from './pages/Doctor/PatientRecords';
 import DoctorCallQueue from './pages/Doctor/CallQueue';
+import DoctorCallLogs from './pages/Doctor/CallLogs';
+import DoctorAppointmentLogs from './pages/Doctor/AppointmentLogs';
 import StaffDashboard from './pages/Staff/StaffDashboard';
 import PatientManagement from './pages/Staff/PatientManagement';
 import AppointmentBooking from './pages/Staff/AppointmentBooking';
 import Reminders from './pages/Staff/Reminders';
 import CallQueue from './pages/Staff/CallQueue';
+import StaffCallLogs from './pages/Staff/CallLogs';
+import StaffAppointmentLogs from './pages/Staff/AppointmentLogs';
 
 import './App.css';
 
@@ -40,8 +45,11 @@ function App() {
             <Route index element={<Navigate to="/doctor/dashboard" replace />} />
             <Route path="dashboard" element={<DoctorDashboard />} />
             <Route path="appointments" element={<DoctorAppointments />} />
+            <Route path="booking" element={<DoctorAppointmentBooking />} />
             <Route path="patients" element={<PatientRecords />} />
             <Route path="call-queue" element={<DoctorCallQueue />} />
+            <Route path="call-logs" element={<DoctorCallLogs />} />
+            <Route path="appointment-logs" element={<DoctorAppointmentLogs />} />
           </Route>
 
           {/* Staff Routes */}
@@ -59,6 +67,8 @@ function App() {
             <Route path="appointments" element={<AppointmentBooking />} />
             <Route path="reminders" element={<Reminders />} />
             <Route path="call-queue" element={<CallQueue />} />
+            <Route path="call-logs" element={<StaffCallLogs />} />
+            <Route path="appointment-logs" element={<StaffAppointmentLogs />} />
           </Route>
 
           {/* Unauthorized */}

@@ -155,7 +155,7 @@ User Sees Updated Availability
 
 2. **Completing Appointments:**
    - Mark appointment as complete
-   - Add reason for visit and next visit date
+   - Add next visit date and notes
    - Status updates instantly across all portals
 
 ## Preventing Double Bookings

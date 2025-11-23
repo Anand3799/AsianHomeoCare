@@ -29,7 +29,7 @@ export const createPatientFromCallQueue = async (patientData) => {
   const { name, phone, age, gender, address } = patientData;
   
   // Check if patient already exists
-  const existingPatient = await getPatientByPhone(phone);
+  const existingPatient = await getPatientByName(name);
   if (existingPatient) {
     return existingPatient;
   }
@@ -53,8 +53,8 @@ export const updatePatient = async (patientId, updates) => {
   return await updateDoc(patientRef, updates);
 };
 
-export const getPatientByPhone = async (phone) => {
-  const q = query(collection(db, 'patients'), where('phone', '==', phone));
+export const getPatientByName = async (name) => {
+  const q = query(collection(db, 'patients'), where('name', '==', name));
   const snapshot = await getDocs(q);
   if (!snapshot.empty) {
     return { id: snapshot.docs[0].id, ...snapshot.docs[0].data() };
@@ -111,58 +111,41 @@ export const getAllAppointments = (callback) => {
   });
 };
 
-// Transaction-based appointment booking to prevent double bookings
+// Transaction-based appointment booking with dual sub-slots (A and B)
 export const bookAppointmentWithTransaction = async (appointmentData) => {
-  const { date, time, duration = 15, ...restData } = appointmentData;
+  const { date, time, subSlot, subSlotType, ...restData } = appointmentData;
   
-  // Calculate all time slots that will be occupied
-  const [hours, minutes] = time.split(':').map(Number);
-  const startMinutes = hours * 60 + minutes;
-  const slotsNeeded = Math.ceil(duration / 15);
-  const occupiedSlots = [];
+  // Validate sub-slot
+  if (!subSlot || !['A', 'B'].includes(subSlot)) {
+    throw new Error('Invalid sub-slot. Must be A or B.');
+  }
   
-  for (let i = 0; i < slotsNeeded; i++) {
-    const slotMinutes = startMinutes + (i * 15);
-    const slotHour = Math.floor(slotMinutes / 60);
-    const slotMin = slotMinutes % 60;
-    const timeStr = `${slotHour.toString().padStart(2, '0')}:${slotMin.toString().padStart(2, '0')}`;
-    occupiedSlots.push(timeStr);
+  // Validate sub-slot type
+  if (!subSlotType || !['walkin', 'call'].includes(subSlotType)) {
+    throw new Error('Invalid sub-slot type. Must be walkin or call.');
+  }
+  
+  // Sub-slot A is always walk-in only
+  if (subSlot === 'A' && subSlotType !== 'walkin') {
+    throw new Error('Sub-slot A can only be booked as walk-in.');
   }
 
   return await runTransaction(db, async (transaction) => {
-    // Query for conflicting appointments
+    // Query for conflicting appointments at the same time and sub-slot
     const appointmentsRef = collection(db, 'appointments');
     const conflictQuery = query(
       appointmentsRef,
       where('date', '==', date),
+      where('time', '==', time),
+      where('subSlot', '==', subSlot),
       where('status', 'in', ['scheduled', 'rescheduled'])
     );
     
     const snapshot = await getDocs(conflictQuery);
-    const existingAppointments = snapshot.docs.map(doc => ({ 
-      id: doc.id, 
-      ...doc.data() 
-    }));
-
-    // Check for conflicts
-    for (const apt of existingAppointments) {
-      const [aptHours, aptMinutes] = apt.time.split(':').map(Number);
-      const aptStartMinutes = aptHours * 60 + aptMinutes;
-      const aptDuration = apt.duration || 15;
-      const aptSlotsNeeded = Math.ceil(aptDuration / 15);
-      
-      // Get all slots occupied by this existing appointment
-      for (let i = 0; i < aptSlotsNeeded; i++) {
-        const aptSlotMinutes = aptStartMinutes + (i * 15);
-        const aptSlotHour = Math.floor(aptSlotMinutes / 60);
-        const aptSlotMin = aptSlotMinutes % 60;
-        const aptTimeStr = `${aptSlotHour.toString().padStart(2, '0')}:${aptSlotMin.toString().padStart(2, '0')}`;
-        
-        // Check if any of our slots conflict with existing appointment slots
-        if (occupiedSlots.includes(aptTimeStr)) {
-          throw new Error(`SLOT_CONFLICT:Time slot ${aptTimeStr} is already booked. Please select another time.`);
-        }
-      }
+    
+    // Check if sub-slot is already booked
+    if (!snapshot.empty) {
+      throw new Error(`SLOT_CONFLICT:Sub-slot ${subSlot} at ${time} is already booked. Please select another slot.`);
     }
 
     // If no conflicts, create the appointment
@@ -171,7 +154,9 @@ export const bookAppointmentWithTransaction = async (appointmentData) => {
       ...restData,
       date,
       time,
-      duration,
+      subSlot,
+      subSlotType,
+      duration: 15, // Always 15 minutes per slot
       createdAt: Timestamp.now()
     });
 
@@ -179,12 +164,12 @@ export const bookAppointmentWithTransaction = async (appointmentData) => {
   });
 };
 
-// Transaction-based appointment update/reschedule
+// Transaction-based appointment update/reschedule with dual sub-slots
 export const updateAppointmentWithTransaction = async (appointmentId, updates) => {
-  const { date, time, duration, ...restUpdates } = updates;
+  const { date, time, subSlot, subSlotType, ...restUpdates } = updates;
   
-  // If not updating time-related fields, use regular update
-  if (!date && !time && !duration) {
+  // If not updating time/slot-related fields, use regular update
+  if (!date && !time && !subSlot && !subSlotType) {
     return await updateAppointment(appointmentId, updates);
   }
 
@@ -199,52 +184,32 @@ export const updateAppointmentWithTransaction = async (appointmentId, updates) =
     const currentData = appointmentDoc.data();
     const newDate = date || currentData.date;
     const newTime = time || currentData.time;
-    const newDuration = duration || currentData.duration || 15;
+    const newSubSlot = subSlot || currentData.subSlot;
+    const newSubSlotType = subSlotType || currentData.subSlotType;
 
-    // Calculate all time slots that will be occupied
-    const [hours, minutes] = newTime.split(':').map(Number);
-    const startMinutes = hours * 60 + minutes;
-    const slotsNeeded = Math.ceil(newDuration / 15);
-    const occupiedSlots = [];
-    
-    for (let i = 0; i < slotsNeeded; i++) {
-      const slotMinutes = startMinutes + (i * 15);
-      const slotHour = Math.floor(slotMinutes / 60);
-      const slotMin = slotMinutes % 60;
-      const timeStr = `${slotHour.toString().padStart(2, '0')}:${slotMin.toString().padStart(2, '0')}`;
-      occupiedSlots.push(timeStr);
+    // Validate sub-slot A is always walk-in
+    if (newSubSlot === 'A' && newSubSlotType !== 'walkin') {
+      throw new Error('Sub-slot A can only be booked as walk-in.');
     }
 
-    // Query for conflicting appointments (excluding this one)
+    // Query for conflicting appointments at new time/slot (excluding this one)
     const appointmentsRef = collection(db, 'appointments');
     const conflictQuery = query(
       appointmentsRef,
       where('date', '==', newDate),
+      where('time', '==', newTime),
+      where('subSlot', '==', newSubSlot),
       where('status', 'in', ['scheduled', 'rescheduled'])
     );
     
     const snapshot = await getDocs(conflictQuery);
-    const existingAppointments = snapshot.docs
-      .filter(doc => doc.id !== appointmentId) // Exclude current appointment
+    const conflictingAppointments = snapshot.docs
+      .filter(doc => doc.id !== appointmentId)
       .map(doc => ({ id: doc.id, ...doc.data() }));
 
-    // Check for conflicts
-    for (const apt of existingAppointments) {
-      const [aptHours, aptMinutes] = apt.time.split(':').map(Number);
-      const aptStartMinutes = aptHours * 60 + aptMinutes;
-      const aptDuration = apt.duration || 15;
-      const aptSlotsNeeded = Math.ceil(aptDuration / 15);
-      
-      for (let i = 0; i < aptSlotsNeeded; i++) {
-        const aptSlotMinutes = aptStartMinutes + (i * 15);
-        const aptSlotHour = Math.floor(aptSlotMinutes / 60);
-        const aptSlotMin = aptSlotMinutes % 60;
-        const aptTimeStr = `${aptSlotHour.toString().padStart(2, '0')}:${aptSlotMin.toString().padStart(2, '0')}`;
-        
-        if (occupiedSlots.includes(aptTimeStr)) {
-          throw new Error(`SLOT_CONFLICT:Time slot ${aptTimeStr} is already booked. Please select another time.`);
-        }
-      }
+    // Check if sub-slot is already booked
+    if (conflictingAppointments.length > 0) {
+      throw new Error(`SLOT_CONFLICT:Sub-slot ${newSubSlot} at ${newTime} is already booked. Please select another slot.`);
     }
 
     // If no conflicts, update the appointment
@@ -252,7 +217,9 @@ export const updateAppointmentWithTransaction = async (appointmentId, updates) =
       ...restUpdates,
       date: newDate,
       time: newTime,
-      duration: newDuration,
+      subSlot: newSubSlot,
+      subSlotType: newSubSlotType,
+      duration: 15,
       updatedAt: Timestamp.now()
     });
 
@@ -292,11 +259,11 @@ export const createMedicineReminderIfNeeded = async (appointmentData) => {
   }
 
   try {
-    // Query for existing reminders with same phone, date, and type
+    // Query for existing reminders with same name, date, and type
     const remindersRef = collection(db, 'reminders');
     const q = query(
       remindersRef,
-      where('patientPhone', '==', patientPhone),
+      where('patientName', '==', patientName),
       where('date', '==', nextVisit),
       where('type', '==', 'medicine')
     );
@@ -346,33 +313,42 @@ export const deleteReminder = async (reminderId) => {
 
 // Call Queue
 export const addToCallQueue = async (callData) => {
-  return await addDoc(collection(db, 'callQueue'), {
+  // Add to call queue
+  const queueRef = await addDoc(collection(db, 'callQueue'), {
     ...callData,
+    status: 'pending',
     timestamp: Timestamp.now(),
-    addedDate: new Date().toISOString().split('T')[0], // Store date for duplicate checking
-    isNewPatient: callData.isNewPatient || false
+    addedDate: new Date().toISOString().split('T')[0],
+    isNewPatient: callData.isNewPatient || false,
+    reasonForCall: callData.reasonForCall || ''
   });
+
+  // Create call log entry
+  await addDoc(collection(db, 'callLogs'), {
+    queueId: queueRef.id,
+    patientName: callData.patientName,
+    phone: callData.phone,
+    reasonForCall: callData.reasonForCall || '',
+    isNewPatient: callData.isNewPatient || false,
+    action: 'added',
+    actionBy: callData.addedBy || 'staff',
+    timestamp: Timestamp.now(),
+    status: 'pending'
+  });
+
+  return queueRef;
 };
 
-// Check if patient already in queue today
+// Check if patient already in queue (active entry exists)
 export const checkPatientInQueueToday = async (phone) => {
-  const today = new Date().toISOString().split('T')[0];
   const q = query(
     collection(db, 'callQueue'),
     where('phone', '==', phone),
-    where('status', '==', 'waiting'),
-    where('addedDate', '==', today)
+    where('status', '==', 'pending')
   );
   
   const snapshot = await getDocs(q);
   return !snapshot.empty;
-};
-
-// Get all call queue entries (for checking duplicates)
-export const getAllCallQueueEntries = async () => {
-  const q = query(collection(db, 'callQueue'));
-  const snapshot = await getDocs(q);
-  return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 };
 
 export const updateCallQueue = async (callId, updates) => {
@@ -380,15 +356,69 @@ export const updateCallQueue = async (callId, updates) => {
   return await updateDoc(callRef, updates);
 };
 
-export const deleteFromCallQueue = async (callId) => {
+export const deleteFromCallQueue = async (callId, deletedBy = 'staff') => {
   const callRef = doc(db, 'callQueue', callId);
+  const callDoc = await getDoc(callRef);
+  
+  if (callDoc.exists()) {
+    const callData = callDoc.data();
+    
+    // Create call log entry for deletion
+    await addDoc(collection(db, 'callLogs'), {
+      queueId: callId,
+      patientName: callData.patientName,
+      phone: callData.phone,
+      reasonForCall: callData.reasonForCall || '',
+      isNewPatient: callData.isNewPatient || false,
+      action: 'deleted',
+      actionBy: deletedBy,
+      timestamp: Timestamp.now(),
+      status: 'deleted'
+    });
+  }
+  
   return await deleteDoc(callRef);
+};
+
+export const completeCallQueue = async (callId, completedBy, staffNotes = '') => {
+  const callRef = doc(db, 'callQueue', callId);
+  const callDoc = await getDoc(callRef);
+  
+  if (!callDoc.exists()) {
+    throw new Error('Call queue entry not found');
+  }
+  
+  const callData = callDoc.data();
+  
+  // Update call queue status
+  await updateDoc(callRef, {
+    status: 'completed',
+    completedBy,
+    completedAt: Timestamp.now(),
+    staffNotes: staffNotes || ''
+  });
+  
+  // Create call log entry for completion
+  await addDoc(collection(db, 'callLogs'), {
+    queueId: callId,
+    patientName: callData.patientName,
+    phone: callData.phone,
+    reasonForCall: callData.reasonForCall || '',
+    isNewPatient: callData.isNewPatient || false,
+    action: 'completed',
+    actionBy: completedBy,
+    staffNotes: staffNotes || '',
+    timestamp: Timestamp.now(),
+    status: 'completed'
+  });
+  
+  return true;
 };
 
 export const getCallQueue = (callback) => {
   const q = query(
     collection(db, 'callQueue'),
-    where('status', '==', 'waiting')
+    where('status', '==', 'pending')
   );
   return onSnapshot(q, (snapshot) => {
     const queue = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
@@ -398,6 +428,22 @@ export const getCallQueue = (callback) => {
       return a.timestamp.toMillis() - b.timestamp.toMillis();
     });
     callback(queue);
+  });
+};
+
+export const getAllCallQueueEntries = (callback) => {
+  const q = query(collection(db, 'callQueue'), orderBy('timestamp', 'desc'));
+  return onSnapshot(q, (snapshot) => {
+    const entries = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    callback(entries);
+  });
+};
+
+export const getCallLogs = (callback) => {
+  const q = query(collection(db, 'callLogs'), orderBy('timestamp', 'desc'));
+  return onSnapshot(q, (snapshot) => {
+    const logs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    callback(logs);
   });
 };
 

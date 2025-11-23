@@ -25,8 +25,8 @@ const StaffDashboard = () => {
     const unique = [];
     
     remindersList.forEach(reminder => {
-      // Create a unique key based on phone, date, type, and message
-      const key = `${reminder.patientPhone}-${reminder.date}-${reminder.type}-${reminder.message || ''}`;
+      // Create a unique key based on name, date, type, and message
+      const key = `${reminder.patientName}-${reminder.date}-${reminder.type}-${reminder.message || ''}`;
       
       if (!seen.has(key)) {
         seen.add(key);

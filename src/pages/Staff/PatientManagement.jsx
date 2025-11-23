@@ -1,7 +1,11 @@
 import { useState, useEffect } from 'react';
 import { getAllPatients, addPatient, updatePatient } from '../../firebase/firestore';
 import { useToast } from '../../contexts/ToastContext';
-import { FaUserPlus, FaEdit, FaSearch, FaSave, FaTimes } from 'react-icons/fa';
+import { format, parse } from 'date-fns';
+import { FaUserPlus, FaEdit, FaSearch, FaSave, FaTimes, FaTrash } from 'react-icons/fa';
+import { deleteDoc, doc } from 'firebase/firestore';
+import { db } from '../../firebase/config';
+import ConfirmDialog from '../../components/ConfirmDialog';
 import '../../styles/PatientManagement.css';
 
 const PatientManagement = () => {
@@ -10,6 +14,7 @@ const PatientManagement = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingPatient, setEditingPatient] = useState(null);
+  const [confirmDialog, setConfirmDialog] = useState({ isOpen: false, patientId: null, patientName: '' });
   
   const [formData, setFormData] = useState({
     name: '',
@@ -31,14 +36,31 @@ const PatientManagement = () => {
     e.preventDefault();
 
     try {
+      // Convert dates from dd-MM-yyyy to yyyy-MM-dd for storage
+      const normalizedVisits = formData.previousVisits.map(date => {
+        try {
+          // Try parsing as dd-MM-yyyy first
+          const parsed = parse(date, 'dd-MM-yyyy', new Date());
+          return format(parsed, 'yyyy-MM-dd');
+        } catch {
+          // If fails, check if already in yyyy-MM-dd format
+          if (/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+            return date;
+          }
+          return date; // Keep as-is if neither format
+        }
+      });
+
+      const dataToSave = {
+        ...formData,
+        previousVisits: normalizedVisits
+      };
+
       if (editingPatient) {
-        await updatePatient(editingPatient.id, formData);
+        await updatePatient(editingPatient.id, dataToSave);
         toast.success('Patient updated successfully!');
       } else {
-        await addPatient({
-          ...formData,
-          reasons: []
-        });
+        await addPatient(dataToSave);
         toast.success('Patient added successfully!');
       }
 
@@ -53,12 +75,20 @@ const PatientManagement = () => {
 
   const handleEdit = (patient) => {
     setEditingPatient(patient);
+    // Convert dates from yyyy-MM-dd to dd-MM-yyyy for display
+    const formattedVisits = (patient.previousVisits || []).map(date => {
+      try {
+        return format(parse(date, 'yyyy-MM-dd', new Date()), 'dd-MM-yyyy');
+      } catch {
+        return date; // Keep as-is if parsing fails
+      }
+    });
     setFormData({
       name: patient.name,
       phone: patient.phone,
       age: patient.age || '',
       gender: patient.gender || '',
-      previousVisits: patient.previousVisits || []
+      previousVisits: formattedVisits
     });
     setShowAddForm(true);
   };
@@ -69,7 +99,29 @@ const PatientManagement = () => {
     setFormData({ name: '', phone: '', age: '', gender: '', previousVisits: [] });
   };
 
+  const handleDeleteClick = (patient) => {
+    setConfirmDialog({ isOpen: true, patientId: patient.id, patientName: patient.name });
+  };
+
+  const confirmDelete = async () => {
+    const { patientId } = confirmDialog;
+    setConfirmDialog({ isOpen: false, patientId: null, patientName: '' });
+    
+    try {
+      await deleteDoc(doc(db, 'patients', patientId));
+      toast.success('Patient deleted successfully!');
+    } catch (error) {
+      console.error('Error deleting patient:', error);
+      toast.error('Failed to delete patient');
+    }
+  };
+
+  const cancelDelete = () => {
+    setConfirmDialog({ isOpen: false, patientId: null, patientName: '' });
+  };
+
   const filteredPatients = patients.filter(patient =>
+    patient.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     patient.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     patient.phone.includes(searchTerm)
   );
@@ -157,7 +209,7 @@ const PatientManagement = () => {
                       previousVisits: e.target.value.split('\n').filter(d => d.trim())
                     })
                   }
-                  placeholder="2025-01-15&#10;2025-02-20"
+                  placeholder="15-01-2025&#10;20-02-2025"
                   rows="4"
                 />
               </div>
@@ -180,7 +232,7 @@ const PatientManagement = () => {
           <FaSearch className="search-icon" />
           <input
             type="text"
-            placeholder="Search by name or phone number..."
+            placeholder="Search by patient name..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
@@ -221,6 +273,12 @@ const PatientManagement = () => {
                     >
                       <FaEdit /> Edit
                     </button>
+                    <button
+                      className="delete-btn"
+                      onClick={() => handleDeleteClick(patient)}
+                    >
+                      <FaTrash /> Delete
+                    </button>
                   </td>
                 </tr>
               ))
@@ -228,6 +286,14 @@ const PatientManagement = () => {
           </tbody>
         </table>
       </div>
+
+      <ConfirmDialog
+        isOpen={confirmDialog.isOpen}
+        title="Delete Patient"
+        message={`Are you sure you want to delete ${confirmDialog.patientName}? This action cannot be undone.`}
+        onConfirm={confirmDelete}
+        onCancel={cancelDelete}
+      />
     </div>
   );
 };

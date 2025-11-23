@@ -79,8 +79,12 @@ const DoctorDashboard = () => {
                 <div key={apt.id} className="appointment-item">
                   <div className="appointment-time">{formatTime(apt.time)}</div>
                   <div className="appointment-details">
-                    <h3>{apt.patientName}</h3>
-                    <p>📞 {apt.patientPhone}</p>
+                    <h3>
+                      {apt.patientName}
+                      {apt.isNewPatient && (
+                        <span className="new-patient-badge" style={{ marginLeft: '8px', fontSize: '0.75rem' }}>✨ New Patient</span>
+                      )}
+                    </h3>
                     {apt.patientAge && <p>👤 {apt.patientAge} yrs</p>}
                     {apt.patientGender && <p>⚥ {apt.patientGender}</p>}
                     <span className={`status-badge ${apt.status}`}>

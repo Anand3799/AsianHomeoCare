@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { getAllPatients } from '../../firebase/firestore';
 import { FaSearch, FaFolderOpen, FaCalendarAlt } from 'react-icons/fa';
-import { format } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import '../../styles/PatientRecords.css';
 
 const PatientRecords = () => {
@@ -19,6 +19,7 @@ const PatientRecords = () => {
 
   const filteredPatients = patients.filter(patient =>
     patient.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    patient.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     patient.phone.includes(searchTerm)
   );
 
@@ -33,7 +34,7 @@ const PatientRecords = () => {
           <FaSearch className="search-icon" />
           <input
             type="text"
-            placeholder="Search by name or phone number..."
+            placeholder="Search by patient name..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
@@ -102,36 +103,13 @@ const PatientRecords = () => {
                 {selectedPatient.previousVisits && selectedPatient.previousVisits.length > 0 ? (
                   <ul className="visit-list">
                     {selectedPatient.previousVisits.map((date, index) => (
-                      <li key={index}>{date}</li>
+                      <li key={index}>{format(parseISO(date), 'dd-MM-yyyy')}</li>
                     ))}
                   </ul>
                 ) : (
                   <p className="no-data">No previous visits recorded</p>
                 )}
               </div>
-
-              <div className="info-group">
-                <label>Visit Reasons</label>
-                {selectedPatient.reasons && selectedPatient.reasons.length > 0 ? (
-                  <ul className="reasons-list">
-                    {selectedPatient.reasons.map((reason, index) => (
-                      <li key={index}>{reason}</li>
-                    ))}
-                  </ul>
-                ) : (
-                  <p className="no-data">No visit reasons recorded</p>
-                )}
-              </div>
-
-              {selectedPatient.createdAt && (
-                <div className="info-group">
-                  <label>Patient Since</label>
-                  <p>
-                    {selectedPatient.createdAt.toDate && 
-                      format(selectedPatient.createdAt.toDate(), 'MMMM dd, yyyy')}
-                  </p>
-                </div>
-              )}
             </div>
           </div>
         )}
