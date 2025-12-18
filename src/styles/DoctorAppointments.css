@@ -599,3 +599,66 @@
   background: #fce7f3;
   color: #be185d;
 }
+
+/* Grouped Slots Styling */
+.grouped-slots {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 8px 0;
+}
+
+.slot-time-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+  color: var(--text-dark);
+  font-size: 0.95rem;
+}
+
+.sub-slot-badge-inline {
+  display: inline-block;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.sub-slot-badge-inline.slot-a {
+  background: #3b82f6;
+  color: white;
+}
+
+.sub-slot-badge-inline.slot-b {
+  background: #f59e0b;
+  color: white;
+}
+
+.type-badge-inline {
+  display: inline-block;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.type-badge-inline.walkin {
+  background: #dbeafe;
+  color: #1e40af;
+}
+
+.type-badge-inline.call {
+  background: #fce7f3;
+  color: #be185d;
+}
+
+.slot-separator {
+  color: var(--doctor-accent);
+  font-weight: bold;
+  font-size: 1.2rem;
+  margin: 0 4px;
+}

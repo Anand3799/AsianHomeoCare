@@ -67,6 +67,31 @@ const DoctorAppointments = () => {
     apt.status === 'completed' && apt.date === selectedDate
   );
 
+  // Group appointments by patient (same phone and name)
+  const groupAppointmentsByPatient = (appointments) => {
+    const grouped = {};
+    
+    appointments.forEach(apt => {
+      const key = `${apt.patientPhone}-${apt.patientName}`;
+      if (!grouped[key]) {
+        grouped[key] = [];
+      }
+      grouped[key].push(apt);
+    });
+
+    // Convert to array and sort slots within each group
+    return Object.values(grouped).map(group => {
+      const sortedGroup = group.sort((a, b) => {
+        const timeCompare = a.time.localeCompare(b.time);
+        if (timeCompare !== 0) return timeCompare;
+        return a.subSlot.localeCompare(b.subSlot);
+      });
+      return sortedGroup;
+    });
+  };
+
+  const groupedAppointments = groupAppointmentsByPatient(selectedDateAppointments);
+
   return (
     <div className="doctor-appointments">
       <h1>Appointments Management</h1>
@@ -152,43 +177,54 @@ const DoctorAppointments = () => {
               </div>
             ) : (
               <div className="appointments-cards-horizontal">
-                {selectedDateAppointments.map((apt) => (
-                  <div
-                    key={apt.id}
-                    className="appointment-card"
-                  >
-                    <div className="apt-header">
-                      <div className="apt-title-row">
-                        <h3>{apt.patientName}</h3>
-                        {apt.isNewPatient && (
-                          <span className="new-patient-badge-doctor">
-                            <FaUserPlus /> New
-                          </span>
-                        )}
+                {groupedAppointments.map((group, groupIndex) => {
+                  const firstApt = group[0];
+                  return (
+                    <div
+                      key={`${firstApt.id}-${groupIndex}`}
+                      className="appointment-card"
+                    >
+                      <div className="apt-header">
+                        <div className="apt-title-row">
+                          <h3>{firstApt.patientName}</h3>
+                          {firstApt.isNewPatient && (
+                            <span className="new-patient-badge-doctor">
+                              <FaUserPlus /> New
+                            </span>
+                          )}
+                        </div>
+                        <span className={`status-badge ${firstApt.status}`}>{firstApt.status}</span>
                       </div>
-                      <span className={`status-badge ${apt.status}`}>{apt.status}</span>
+                      <div className="apt-info">
+                        <p className="apt-datetime">
+                          <FaCalendarAlt /> {format(parseISO(firstApt.date), 'dd-MM-yyyy')}
+                        </p>
+                        <div className="grouped-slots">
+                          {group.map((apt, index) => (
+                            <span key={apt.id} className="slot-time-group">
+                              {formatTime(apt.time)}
+                              {apt.subSlot && (
+                                <span className={`sub-slot-badge-inline slot-${apt.subSlot.toLowerCase()}`}>
+                                  {apt.subSlot}
+                                </span>
+                              )}
+                              {apt.subSlotType && (
+                                <span className={`type-badge-inline ${apt.subSlotType}`}>
+                                  {apt.subSlotType === 'walkin' ? 'Walk-in' : 'Call'}
+                                </span>
+                              )}
+                              {index < group.length - 1 && <span className="slot-separator">•</span>}
+                            </span>
+                          ))}
+                        </div>
+                        <p>📞 {firstApt.patientPhone}</p>
+                        {firstApt.patientAge && <p>👤 Age: {firstApt.patientAge}</p>}
+                        {firstApt.patientGender && <p>⚥ Gender: {firstApt.patientGender}</p>}
+                        <p>⏱️ Duration: {firstApt.duration * group.length} mins</p>
+                      </div>
                     </div>
-                    <div className="apt-info">
-                      <p className="apt-datetime">
-                        <FaCalendarAlt /> {format(parseISO(apt.date), 'dd-MM-yyyy')} at {formatTime(apt.time)}
-                      </p>
-                      {apt.subSlot && (
-                        <span className={`sub-slot-badge-doctor slot-${apt.subSlot.toLowerCase()}`}>
-                          {apt.subSlot}
-                        </span>
-                      )}
-                      {apt.subSlotType && (
-                        <span className={`type-badge-doctor ${apt.subSlotType}`}>
-                          {apt.subSlotType === 'walkin' ? 'Walk-in' : 'Call'}
-                        </span>
-                      )}
-                      <p>📞 {apt.patientPhone}</p>
-                      {apt.patientAge && <p>👤 Age: {apt.patientAge}</p>}
-                      {apt.patientGender && <p>⚥ Gender: {apt.patientGender}</p>}
-                      <p>⏱️ Duration: {apt.duration} mins</p>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>

@@ -406,13 +406,6 @@ const Reminders = () => {
                     </div>
                     <div className="reminder-actions">
                       <button
-                        className="call-btn"
-                        onClick={() => window.open(`tel:${reminder.patientPhone}`)}
-                        title="Call Patient"
-                      >
-                        <FaPhone /> Call
-                      </button>
-                      <button
                         className="book-btn"
                         onClick={() => handleBookAppointment(reminder)}
                         title="Book Appointment"

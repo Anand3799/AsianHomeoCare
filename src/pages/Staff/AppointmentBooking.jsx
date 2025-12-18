@@ -239,6 +239,15 @@ const AppointmentBooking = () => {
 
     try {
       if (isRescheduling && selectedAppointment) {
+        // Update patient details if they were changed
+        if (selectedAppointment.patientId) {
+          await updatePatient(selectedAppointment.patientId, {
+            phone: formData.patientPhone,
+            age: formData.patientAge || '',
+            gender: formData.patientGender || ''
+          });
+        }
+        
         // Use transaction-based update for rescheduling (single slot only)
         const firstSlot = selectedSlots[0];
         await updateAppointmentWithTransaction(selectedAppointment.id, {
@@ -247,9 +256,12 @@ const AppointmentBooking = () => {
           subSlot: firstSlot.subSlot,
           subSlotType: firstSlot.subSlotType,
           notes: formData.notes,
-          status: 'rescheduled'
+          status: 'rescheduled',
+          patientPhone: formData.patientPhone,
+          patientAge: formData.patientAge || '',
+          patientGender: formData.patientGender || ''
         });
-        toast.success('Appointment rescheduled successfully!');
+        toast.success('Appointment rescheduled and patient details updated successfully!');
       } else {
         let patientId = formData.patientId;
 
@@ -274,6 +286,14 @@ const AppointmentBooking = () => {
           patientId = newPatientId.id;
           
           console.log('New patient added to database:', newPatientId);
+        } else if (formData.patientId) {
+          // Update existing patient details if they were changed
+          await updatePatient(formData.patientId, {
+            phone: formData.patientPhone,
+            age: formData.patientAge || '',
+            gender: formData.patientGender || ''
+          });
+          console.log('Patient details updated in database');
         }
 
         // Book all selected slots
@@ -492,6 +512,50 @@ const AppointmentBooking = () => {
     apt => apt.date === selectedDate
   );
 
+  // Group appointments by patient (phone number + name)
+  const groupAppointmentsByPatient = () => {
+    const grouped = [];
+    const processed = new Set();
+
+    selectedDateAppointments
+      .sort((a, b) => {
+        // First sort by time
+        const timeCompare = a.time.localeCompare(b.time);
+        if (timeCompare !== 0) return timeCompare;
+        // Then sort by subSlot (A before B)
+        return a.subSlot.localeCompare(b.subSlot);
+      })
+      .forEach((apt) => {
+        if (processed.has(apt.id)) return;
+
+        const patientKey = `${apt.patientPhone}-${apt.patientName}`;
+        const samePatientAppointments = selectedDateAppointments
+          .filter(a => 
+            `${a.patientPhone}-${a.patientName}` === patientKey &&
+            !processed.has(a.id)
+          )
+          .sort((a, b) => {
+            // First sort by time
+            const timeCompare = a.time.localeCompare(b.time);
+            if (timeCompare !== 0) return timeCompare;
+            // Then sort by subSlot (A before B)
+            return a.subSlot.localeCompare(b.subSlot);
+          });
+
+        samePatientAppointments.forEach(a => processed.add(a.id));
+
+        grouped.push({
+          ...apt,
+          allSlots: samePatientAppointments,
+          isGrouped: samePatientAppointments.length > 1
+        });
+      });
+
+    return grouped;
+  };
+
+  const groupedAppointments = groupAppointmentsByPatient();
+
   // Get appointment count per date for calendar badges
   const getAppointmentCountForDate = (date) => {
     const dateStr = format(date, 'yyyy-MM-dd');
@@ -684,8 +748,6 @@ const AppointmentBooking = () => {
                     onChange={(e) => setFormData({ ...formData, patientPhone: e.target.value })}
                     placeholder="Enter phone number"
                     required
-                    disabled={!isNewPatient}
-                    readOnly={!isNewPatient}
                   />
                 </div>
 
@@ -699,7 +761,14 @@ const AppointmentBooking = () => {
                           name="subSlotType"
                           value="walkin"
                           checked={formData.subSlotType === 'walkin'}
-                          onChange={(e) => setFormData({ ...formData, subSlotType: e.target.value })}
+                          onChange={(e) => {
+                            const newType = e.target.value;
+                            setFormData({ ...formData, subSlotType: newType });
+                            // Update all B slots in selectedSlots
+                            setSelectedSlots(selectedSlots.map(slot => 
+                              slot.subSlot === 'B' ? { ...slot, subSlotType: newType } : slot
+                            ));
+                          }}
                         />
                         <span className="type-label">Walk-in</span>
                       </label>
@@ -709,7 +778,14 @@ const AppointmentBooking = () => {
                           name="subSlotType"
                           value="call"
                           checked={formData.subSlotType === 'call'}
-                          onChange={(e) => setFormData({ ...formData, subSlotType: e.target.value })}
+                          onChange={(e) => {
+                            const newType = e.target.value;
+                            setFormData({ ...formData, subSlotType: newType });
+                            // Update all B slots in selectedSlots
+                            setSelectedSlots(selectedSlots.map(slot => 
+                              slot.subSlot === 'B' ? { ...slot, subSlotType: newType } : slot
+                            ));
+                          }}
                         />
                         <span className="type-label">Call</span>
                       </label>
@@ -728,8 +804,6 @@ const AppointmentBooking = () => {
                       required
                       min="0"
                       max="150"
-                      disabled={!isNewPatient}
-                      readOnly={!isNewPatient}
                     />
                   </div>
 
@@ -739,7 +813,6 @@ const AppointmentBooking = () => {
                       value={formData.patientGender}
                       onChange={(e) => setFormData({ ...formData, patientGender: e.target.value })}
                       required
-                      disabled={!isNewPatient}
                     >
                       <option value="">Select gender</option>
                       <option value="Male">Male</option>
@@ -872,14 +945,14 @@ const AppointmentBooking = () => {
               Appointments for {selectedDate && format(new Date(selectedDate + 'T00:00:00'), 'dd-MM-yyyy')}
             </h3>
             
-            {selectedDateAppointments.length === 0 ? (
+            {groupedAppointments.length === 0 ? (
               <div className="empty-state">
                 <FaCalendarPlus className="empty-icon" />
                 <p>No appointments scheduled for this date</p>
               </div>
             ) : (
               <div className="appointments-cards-horizontal">
-                {selectedDateAppointments.map((apt) => (
+                {groupedAppointments.map((apt) => (
                   <div key={apt.id} className="appointment-card">
                     <div className="appointment-card-header">
                       <div className="patient-info">
@@ -891,16 +964,39 @@ const AppointmentBooking = () => {
                     <div className="appointment-card-body">
                       <div className="appointment-detail">
                         <FaClock className="detail-icon" />
-                        <span>{formatTime(apt.time)}</span>
-                        {apt.subSlot && (
-                          <span className={`sub-slot-badge slot-${apt.subSlot.toLowerCase()}`}>
-                            Sub-slot {apt.subSlot}
-                          </span>
-                        )}
-                        {apt.subSlotType && (
-                          <span className={`type-badge ${apt.subSlotType}`}>
-                            {apt.subSlotType === 'walkin' ? 'Walk-in' : 'Call'}
-                          </span>
+                        {apt.isGrouped ? (
+                          <div className="grouped-slots">
+                            {apt.allSlots.map((slot, idx) => (
+                              <span key={slot.id} className="slot-time-group">
+                                {formatTime(slot.time)}
+                                {slot.subSlot && (
+                                  <span className={`sub-slot-badge slot-${slot.subSlot.toLowerCase()}`}>
+                                    {slot.subSlot}
+                                  </span>
+                                )}
+                                {slot.subSlotType && (
+                                  <span className={`type-badge ${slot.subSlotType}`}>
+                                    {slot.subSlotType === 'walkin' ? 'Walk-in' : 'Call'}
+                                  </span>
+                                )}
+                                {idx < apt.allSlots.length - 1 && <span className="slot-separator">•</span>}
+                              </span>
+                            ))}
+                          </div>
+                        ) : (
+                          <>
+                            <span>{formatTime(apt.time)}</span>
+                            {apt.subSlot && (
+                              <span className={`sub-slot-badge slot-${apt.subSlot.toLowerCase()}`}>
+                                Sub-slot {apt.subSlot}
+                              </span>
+                            )}
+                            {apt.subSlotType && (
+                              <span className={`type-badge ${apt.subSlotType}`}>
+                                {apt.subSlotType === 'walkin' ? 'Walk-in' : 'Call'}
+                              </span>
+                            )}
+                          </>
                         )}
                       </div>
                       {apt.nextVisit && (
