@@ -1,8 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
   getAllPatients,
-  getPatientByName,
-  addAppointment,
   updateAppointment,
   getAllAppointments,
   addPatient,
@@ -77,7 +75,7 @@ const AppointmentBooking = () => {
     if (selectedDate) {
       generateTimeSlots();
     }
-  }, [selectedDate, appointments]);
+  }, [selectedDate, generateTimeSlots]);
 
   const handleNameChange = (name) => {
     setFormData({ ...formData, patientName: name });
@@ -117,7 +115,7 @@ const AppointmentBooking = () => {
     }
   };
 
-  const generateTimeSlots = () => {
+  const generateTimeSlots = useCallback(() => {
     const slots = [];
     const slotDuration = 15; // 15 minutes per slot
 
@@ -166,7 +164,7 @@ const AppointmentBooking = () => {
     }
 
     setAvailableSlots(slots);
-  };
+  }, [appointments, selectedDate]);
 
   const handleSubSlotClick = (time, subSlot, isAvailable) => {
     if (!isAvailable) {
@@ -174,7 +172,6 @@ const AppointmentBooking = () => {
       return;
     }
 
-    const slotKey = `${time}-${subSlot}`;
     const isAlreadySelected = selectedSlots.some(s => s.time === time && s.subSlot === subSlot);
 
     if (isNewPatient) {
@@ -653,7 +650,7 @@ const AppointmentBooking = () => {
                       </p>
                     </div>
                   ) : (
-                    availableSlots.map((slot, index) => {
+                    availableSlots.map((slot) => {
                       const isSlotASelected = selectedSlots.some(s => s.time === slot.time && s.subSlot === 'A');
                       const isSlotBSelected = selectedSlots.some(s => s.time === slot.time && s.subSlot === 'B');
                       
