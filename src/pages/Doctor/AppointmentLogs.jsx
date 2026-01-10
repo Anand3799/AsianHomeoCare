@@ -160,7 +160,6 @@ const AppointmentLogs = () => {
                 <th>Patient Name</th>
                 <th>Phone</th>
                 <th>Duration</th>
-                <th>Type</th>
                 <th>Status</th>
                 <th>Next Visit</th>
                 <th>Notes</th>
@@ -190,11 +189,6 @@ const AppointmentLogs = () => {
                   <td>
                     <span className="duration-badge">
                       <FaClock /> {apt.duration} mins
-                    </span>
-                  </td>
-                  <td>
-                    <span className={`type-badge ${apt.isNewPatient ? 'new' : 'existing'}`}>
-                      {apt.isNewPatient ? 'New Patient' : 'Follow-up'}
                     </span>
                   </td>
                   <td>

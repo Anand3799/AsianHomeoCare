@@ -184,43 +184,46 @@ const DoctorAppointments = () => {
                       key={`${firstApt.id}-${groupIndex}`}
                       className="appointment-card"
                     >
-                      <div className="apt-header">
-                        <div className="apt-title-row">
+                      {/* Time Section - Left */}
+                      <div className="apt-time-section">
+                        {group.map((apt, index) => (
+                          <div key={apt.id} className="time-slot">
+                            {formatTime(apt.time)}
+                            {apt.subSlot && <span className="time-dot">•</span>}
+                          </div>
+                        ))}
+                      </div>
+
+                      {/* Patient Info - Center */}
+                      <div className="apt-patient-section">
+                        <div className="patient-name-row">
                           <h3>{firstApt.patientName}</h3>
                           {firstApt.isNewPatient && (
                             <span className="new-patient-badge-doctor">
-                              <FaUserPlus /> New
+                              <FaUserPlus /> NEW PATIENT
                             </span>
                           )}
                         </div>
-                        <span className={`status-badge ${firstApt.status}`}>{firstApt.status}</span>
-                      </div>
-                      <div className="apt-info">
-                        <p className="apt-datetime">
-                          <FaCalendarAlt /> {format(parseISO(firstApt.date), 'dd-MM-yyyy')}
-                        </p>
-                        <div className="grouped-slots">
-                          {group.map((apt, index) => (
-                            <span key={apt.id} className="slot-time-group">
-                              {formatTime(apt.time)}
-                              {apt.subSlot && (
-                                <span className={`sub-slot-badge-inline slot-${apt.subSlot.toLowerCase()}`}>
-                                  {apt.subSlot}
-                                </span>
-                              )}
-                              {apt.subSlotType && (
-                                <span className={`type-badge-inline ${apt.subSlotType}`}>
-                                  {apt.subSlotType === 'walkin' ? 'Walk-in' : 'Call'}
-                                </span>
-                              )}
-                              {index < group.length - 1 && <span className="slot-separator">•</span>}
-                            </span>
-                          ))}
+                        <div className="patient-details">
+                          <span className="detail-item">
+                            <span className="detail-icon">👤</span>
+                            {firstApt.patientAge || 'N/A'} yrs
+                          </span>
+                          <span className="detail-item">
+                            <span className="detail-icon">⚥</span>
+                            {firstApt.patientGender || 'N/A'}
+                          </span>
                         </div>
-                        <p>📞 {firstApt.patientPhone}</p>
-                        {firstApt.patientAge && <p>👤 Age: {firstApt.patientAge}</p>}
-                        {firstApt.patientGender && <p>⚥ Gender: {firstApt.patientGender}</p>}
-                        <p>⏱️ Duration: {firstApt.duration * group.length} mins</p>
+                        <div className="apt-status-badge">
+                          <span className={`status-pill ${firstApt.status}`}>
+                            {firstApt.status === 'scheduled' ? 'Scheduled' : firstApt.status}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Duration - Right */}
+                      <div className="apt-duration-section">
+                        {firstApt.duration * group.length} mins
                       </div>
                     </div>
                   );

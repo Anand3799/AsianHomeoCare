@@ -14,7 +14,7 @@ import {
 import '../styles/StaffLayout.css';
 
 const StaffLayout = () => {
-  const { logout, currentUser } = useAuth();
+  const { logout } = useAuth();
   const navigate = useNavigate();
 
   const handleLogout = async () => {
@@ -72,13 +72,6 @@ const StaffLayout = () => {
         </nav>
 
         <div className="sidebar-footer">
-          <div className="user-info">
-            <FaUserTie />
-            <div>
-              <p className="user-name">{currentUser?.email?.split('@')[0]}</p>
-              <p className="user-role">Staff</p>
-            </div>
-          </div>
           <button className="logout-btn" onClick={handleLogout}>
             <FaSignOutAlt /> Logout
           </button>

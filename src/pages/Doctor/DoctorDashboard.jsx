@@ -23,7 +23,36 @@ const DoctorDashboard = () => {
     const unsubscribeAppointments = getAllAppointments((data) => {
       setAppointments(data);
       const todayAppts = data.filter(apt => apt.date === today && apt.status !== 'completed');
-      setTodayAppointments(todayAppts);
+      
+      // Group appointments by patient
+      const groupedAppts = [];
+      const patientMap = new Map();
+      
+      todayAppts.forEach(apt => {
+        const key = `${apt.patientName}-${apt.patientPhone}`;
+        if (patientMap.has(key)) {
+          const existing = patientMap.get(key);
+          existing.slots.push({ time: apt.time, subSlot: apt.subSlot, id: apt.id });
+          existing.slots.sort((a, b) => a.time.localeCompare(b.time));
+        } else {
+          const grouped = {
+            ...apt,
+            slots: [{ time: apt.time, subSlot: apt.subSlot, id: apt.id }],
+            isGrouped: false
+          };
+          patientMap.set(key, grouped);
+          groupedAppts.push(grouped);
+        }
+      });
+      
+      // Mark grouped appointments
+      groupedAppts.forEach(apt => {
+        if (apt.slots.length > 1) {
+          apt.isGrouped = true;
+        }
+      });
+      
+      setTodayAppointments(groupedAppts);
     });
 
     const unsubscribeQueue = getCallQueue((data) => {
@@ -77,12 +106,25 @@ const DoctorDashboard = () => {
             <div className="appointments-list">
               {todayAppointments.map((apt) => (
                 <div key={apt.id} className="appointment-item">
-                  <div className="appointment-time">{formatTime(apt.time)}</div>
+                  <div className="appointment-time">
+                    {apt.isGrouped ? (
+                      <div className="grouped-times">
+                        {apt.slots.map((slot, idx) => (
+                          <span key={slot.id}>
+                            {formatTime(slot.time)}
+                            {idx < apt.slots.length - 1 && <span className="time-separator"> • </span>}
+                          </span>
+                        ))}
+                      </div>
+                    ) : (
+                      formatTime(apt.time)
+                    )}
+                  </div>
                   <div className="appointment-details">
                     <h3>
                       {apt.patientName}
                       {apt.isNewPatient && (
-                        <span className="new-patient-badge" style={{ marginLeft: '8px', fontSize: '0.75rem' }}>✨ New Patient</span>
+                        <span className="new-patient-badge" style={{ marginLeft: '8px', fontSize: '0.75rem' }}>✨ NEW PATIENT</span>
                       )}
                     </h3>
                     {apt.patientAge && <p>👤 {apt.patientAge} yrs</p>}
@@ -92,7 +134,7 @@ const DoctorDashboard = () => {
                     </span>
                   </div>
                   <div className="appointment-duration">
-                    {apt.duration} mins
+                    {apt.isGrouped ? `${apt.slots.length * 15}` : apt.duration} mins
                   </div>
                 </div>
               ))}

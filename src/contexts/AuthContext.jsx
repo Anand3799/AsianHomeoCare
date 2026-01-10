@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 import { createContext, useContext, useState, useEffect } from 'react';
 import { 
   signInWithEmailAndPassword, 
@@ -31,8 +32,8 @@ export const AuthProvider = ({ children }) => {
           const userData = await getUserByEmail(user.email);
           setCurrentUser(user);
           setUserRole(userData?.role || localStorage.getItem('userRole') || null);
-        } catch (error) {
-          console.error('Error fetching user role:', error);
+        } catch (_error) {
+          console.error('Error fetching user role:', _error);
           // Fallback to localStorage if Firestore fails
           setCurrentUser(user);
           setUserRole(localStorage.getItem('userRole') || null);
@@ -52,14 +53,25 @@ export const AuthProvider = ({ children }) => {
       const result = await signInWithEmailAndPassword(auth, email, password);
       let role = selectedRole;
       
-      // Try to get role from Firestore, fallback to selected role
+      // Try to get role from Firestore first
       try {
         const userData = await getUserByEmail(email);
-        role = userData?.role || selectedRole;
+        role = userData?.role;
       } catch (error) {
         console.error('Error fetching user data:', error);
-        // Use selected role if Firestore fails
-        role = selectedRole;
+      }
+      
+      // Fallback: Detect role from email if not found in Firestore
+      if (!role) {
+        const emailLower = email.toLowerCase();
+        if (emailLower.includes('doctor')) {
+          role = 'doctor';
+        } else if (emailLower.includes('staff')) {
+          role = 'staff';
+        } else {
+          // Default to staff if can't determine
+          role = 'staff';
+        }
       }
       
       if (rememberMe) {
@@ -77,7 +89,7 @@ export const AuthProvider = ({ children }) => {
       setUserRole(role);
       
       return { user: result.user, role };
-    } catch (error) {
+    } catch {
       throw new Error('Invalid username or password');
     }
   };

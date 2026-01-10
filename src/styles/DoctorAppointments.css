@@ -26,80 +26,136 @@
 
 .appointment-card {
   background: white;
-  border-radius: 12px;
-  padding: 16px 20px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-  cursor: pointer;
+  border-radius: 8px;
+  padding: 20px 32px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
   transition: all 0.2s;
-  border: 2px solid transparent;
+  border-left: 4px solid #3b82f6;
   width: 100%;
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  gap: 40px;
+  min-height: 90px;
 }
 
 .appointment-card:hover {
-  border-color: var(--doctor-accent);
-  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
 
-.appointment-card.selected {
-  border-color: var(--doctor-accent);
-  background-color: #eff6ff;
+/* Time Section - Left */
+.apt-time-section {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 100px;
 }
 
-.apt-header {
+.time-slot {
+  color: #3b82f6;
+  font-size: 1.125rem;
+  font-weight: 600;
   display: flex;
   align-items: center;
-  gap: 16px;
-  margin-bottom: 0;
-  flex: 1;
+  gap: 4px;
 }
 
-.apt-title-row {
+.time-dot {
+  color: #3b82f6;
+  font-size: 0.75rem;
+  opacity: 0.6;
+}
+
+/* Patient Info Section - Center */
+.apt-patient-section {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.patient-name-row {
   display: flex;
   align-items: center;
   gap: 12px;
   flex-wrap: wrap;
 }
 
-.apt-header h3 {
+.patient-name-row h3 {
   font-size: 1.125rem;
-  color: var(--text-dark);
+  font-weight: 600;
+  color: #1f2937;
   margin: 0;
-  min-width: 120px;
 }
 
 .new-patient-badge-doctor {
   display: inline-flex;
   align-items: center;
-  gap: 3px;
+  gap: 4px;
   background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
   color: white;
-  padding: 3px 8px;
+  padding: 4px 10px;
   border-radius: 12px;
   font-size: 0.65rem;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.3px;
+  letter-spacing: 0.5px;
   box-shadow: 0 2px 4px rgba(251, 191, 36, 0.3);
   white-space: nowrap;
 }
 
-.apt-info {
+.patient-details {
   display: flex;
   align-items: center;
   gap: 16px;
-  flex: 1;
 }
 
-.apt-info p {
+.detail-item {
   display: flex;
   align-items: center;
   gap: 6px;
-  color: var(--text-light);
-  font-size: 0.875rem;
-  margin: 0;
+  color: #6b7280;
+  font-size: 0.9rem;
+}
+
+.detail-icon {
+  font-size: 1rem;
+}
+
+.apt-status-badge {
+  margin-top: 4px;
+}
+
+.status-pill {
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: capitalize;
+}
+
+.status-pill.scheduled {
+  background: #dbeafe;
+  color: #1e40af;
+}
+
+.status-pill.rescheduled {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.status-pill.completed {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+/* Duration Section - Right */
+.apt-duration-section {
+  color: #6b7280;
+  font-size: 0.95rem;
+  font-weight: 500;
+  min-width: 70px;
+  text-align: right;
 }
 
 .apt-info .apt-datetime {
@@ -200,27 +256,28 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 16px;
+  padding: 12px;
   background-color: var(--light-bg);
-  border-radius: 12px;
+  border-radius: 10px;
 }
 
 .completed-item h4 {
-  font-size: 1rem;
+  font-size: 0.9rem;
   margin-bottom: 4px;
 }
 
 .completed-item p {
   color: var(--text-light);
-  font-size: 0.9rem;
+  font-size: 0.8rem;
 }
 
 .completed-badge {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 5px;
   color: var(--success);
   font-weight: 600;
+  font-size: 0.85rem;
 }
 
 @media (max-width: 1024px) {
@@ -246,9 +303,9 @@
 .calendar-widget-large {
   background: white;
   border-radius: 10px;
-  padding: 0.875rem;
+  padding: 0.75rem;
   border: 1px solid #e5e7eb;
-  max-width: 480px;
+  max-width: 100%;
   margin: 0 auto;
 }
 
@@ -413,7 +470,8 @@
 }
 
 .selected-date-appointments-below {
-  flex: 0 0 550px;
+  flex: 1;
+  max-width: 100%;
 }
 
 .appointment-details-section {

@@ -97,6 +97,17 @@
   min-width: 70px;
 }
 
+.grouped-times {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.time-separator {
+  color: var(--doctor-accent);
+  opacity: 0.5;
+}
+
 .appointment-details {
   flex: 1;
 }

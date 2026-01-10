@@ -14,7 +14,7 @@ import {
 import '../styles/DoctorLayout.css';
 
 const DoctorLayout = () => {
-  const { logout, currentUser } = useAuth();
+  const { logout } = useAuth();
   const navigate = useNavigate();
 
   const handleLogout = async () => {
@@ -72,13 +72,6 @@ const DoctorLayout = () => {
         </nav>
 
         <div className="sidebar-footer">
-          <div className="user-info">
-            <FaUserMd />
-            <div>
-              <p className="user-name">Dr. {currentUser?.email?.split('@')[0]}</p>
-              <p className="user-role">Doctor</p>
-            </div>
-          </div>
           <button className="logout-btn" onClick={handleLogout}>
             <FaSignOutAlt /> Logout
           </button>

@@ -7,7 +7,6 @@ import '../styles/Login.css';
 const Login = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [role, setRole] = useState('staff');
   const [rememberMe, setRememberMe] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
@@ -23,7 +22,7 @@ const Login = () => {
     setLoading(true);
 
     try {
-      const { role: userRole } = await login(email, password, rememberMe, role);
+      const { role: userRole } = await login(email, password, rememberMe, null);
       
       // Small delay to ensure state updates
       await new Promise(resolve => setTimeout(resolve, 100));
@@ -99,32 +98,6 @@ const Login = () => {
             >
               {showPassword ? <FaEyeSlash /> : <FaEye />}
             </button>
-          </div>
-
-          <div className="role-selection">
-            <label>Login As:</label>
-            <div className="role-options">
-              <label className={`role-option ${role === 'staff' ? 'selected' : ''}`}>
-                <input
-                  type="radio"
-                  name="role"
-                  value="staff"
-                  checked={role === 'staff'}
-                  onChange={(e) => setRole(e.target.value)}
-                />
-                <span>Staff</span>
-              </label>
-              <label className={`role-option ${role === 'doctor' ? 'selected' : ''}`}>
-                <input
-                  type="radio"
-                  name="role"
-                  value="doctor"
-                  checked={role === 'doctor'}
-                  onChange={(e) => setRole(e.target.value)}
-                />
-                <span>Doctor</span>
-              </label>
-            </div>
           </div>
 
           <div className="login-options">

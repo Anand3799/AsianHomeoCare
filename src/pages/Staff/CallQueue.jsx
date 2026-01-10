@@ -401,10 +401,6 @@ const CallQueue = () => {
       <div className="queue-container">
         <div className="queue-header">
           <h2>Waiting Calls ({callQueue.length})</h2>
-          <div className="realtime-indicator">
-            <span className="realtime-dot"></span>
-            <span>Live Updates</span>
-          </div>
         </div>
         <p className="queue-info">
           <FaClock /> Doctor will attend calls in first-come-first-serve order
@@ -467,17 +463,6 @@ const CallQueue = () => {
             ))}
           </div>
         )}
-      </div>
-
-      <div className="queue-note">
-        <h3>📋 Queue Rules:</h3>
-        <ul>
-          <li><strong>Duplicate Prevention:</strong> A patient can only appear once in the queue per day</li>
-          <li><strong>Re-entry:</strong> Patient can be re-added only after doctor marks their visit as "Completed"</li>
-          <li><strong>First-Come-First-Serve:</strong> Queue is sorted by time added</li>
-          <li><strong>Real-Time:</strong> Doctor's view updates automatically when you add/remove entries</li>
-          <li><strong>Data Consistency:</strong> Phone numbers and names are validated against patient records</li>
-        </ul>
       </div>
 
       {showCompleteModal && selectedCall && (

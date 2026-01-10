@@ -40,6 +40,10 @@ const AppointmentBooking = () => {
   const [showCompletionModal, setShowCompletionModal] = useState(false);
   const [appointmentToComplete, setAppointmentToComplete] = useState(null);
   const [completionData, setCompletionData] = useState({ nextVisitDate: '', notes: '' });
+  const [showEditTimeModal, setShowEditTimeModal] = useState(false);
+  const [appointmentToEditTime, setAppointmentToEditTime] = useState(null);
+  const [editTimeSlots, setEditTimeSlots] = useState([]);
+  const [selectedEditSlot, setSelectedEditSlot] = useState(null);
   
   const [formData, setFormData] = useState({
     patientName: '',
@@ -397,13 +401,26 @@ const AppointmentBooking = () => {
     if (!appointmentToComplete) return;
 
     try {
-      // Update appointment
-      await updateAppointment(appointmentToComplete.id, {
-        status: 'completed',
-        nextVisit: completionData.nextVisitDate,
-        notes: completionData.notes,
-        completedAt: new Date().toISOString()
-      });
+      // If grouped appointment, complete all slots for this patient
+      if (appointmentToComplete.isGrouped && appointmentToComplete.allSlots) {
+        // Complete all slots
+        for (const slot of appointmentToComplete.allSlots) {
+          await updateAppointment(slot.id, {
+            status: 'completed',
+            nextVisit: completionData.nextVisitDate,
+            notes: completionData.notes,
+            completedAt: new Date().toISOString()
+          });
+        }
+      } else {
+        // Update single appointment
+        await updateAppointment(appointmentToComplete.id, {
+          status: 'completed',
+          nextVisit: completionData.nextVisitDate,
+          notes: completionData.notes,
+          completedAt: new Date().toISOString()
+        });
+      }
 
       // Update patient record and mark as old patient
       if (appointmentToComplete.patientId) {
@@ -458,6 +475,84 @@ const AppointmentBooking = () => {
     } catch (error) {
       console.error('Error completing appointment:', error);
       toast.error('Failed to complete appointment');
+    }
+  };
+
+  // Edit Time handlers
+  const handleOpenEditTimeModal = (apt) => {
+    setAppointmentToEditTime(apt);
+    generateEditTimeSlots(apt);
+    setShowEditTimeModal(true);
+  };
+
+  const generateEditTimeSlots = (apt) => {
+    const slots = [];
+    const slotDuration = 15;
+    const startMinutes = 9 * 60 + 30;
+    const endMinutes = 20 * 60 + 45;
+
+    // Get booked appointments for the same date (excluding current appointment)
+    const bookedAppointments = appointments.filter(
+      a => a.date === apt.date && 
+           a.id !== apt.id && 
+           (a.status === 'scheduled' || a.status === 'rescheduled')
+    );
+
+    // Create a map of booked sub-slots
+    const bookedSubSlots = new Map();
+    bookedAppointments.forEach(a => {
+      const timeKey = a.time;
+      if (!bookedSubSlots.has(timeKey)) {
+        bookedSubSlots.set(timeKey, { A: null, B: null });
+      }
+      const subSlot = a.subSlot || 'A';
+      bookedSubSlots.get(timeKey)[subSlot] = a;
+    });
+
+    for (let currentMinutes = startMinutes; currentMinutes <= endMinutes; currentMinutes += slotDuration) {
+      const hour = Math.floor(currentMinutes / 60);
+      const minute = currentMinutes % 60;
+      const timeStr = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
+
+      const bookedAtTime = bookedSubSlots.get(timeStr) || { A: null, B: null };
+
+      ['A', 'B'].forEach(subSlot => {
+        const isBooked = bookedAtTime[subSlot] !== null;
+        slots.push({
+          time: timeStr,
+          subSlot,
+          available: !isBooked,
+          displayTime: formatTime(timeStr)
+        });
+      });
+    }
+
+    setEditTimeSlots(slots);
+  };
+
+  const handleSelectEditSlot = (slot) => {
+    if (slot.available) {
+      setSelectedEditSlot(slot);
+    }
+  };
+
+  const handleSaveEditTime = async () => {
+    if (!selectedEditSlot || !appointmentToEditTime) return;
+
+    try {
+      await updateAppointment(appointmentToEditTime.id, {
+        time: selectedEditSlot.time,
+        subSlot: selectedEditSlot.subSlot
+      });
+
+      toast.success('Appointment time updated successfully');
+      setShowEditTimeModal(false);
+      setAppointmentToEditTime(null);
+      setSelectedEditSlot(null);
+      setEditTimeSlots([]);
+    } catch (error) {
+      console.error('Error updating appointment time:', error);
+      toast.error('Failed to update appointment time');
     }
   };
 
@@ -1023,6 +1118,12 @@ const AppointmentBooking = () => {
                         </button>
                       )}
                       <button
+                        className="edit-time-btn"
+                        onClick={() => handleOpenEditTimeModal(apt)}
+                      >
+                        <FaClock /> Edit Time
+                      </button>
+                      <button
                         className="reschedule-btn"
                         onClick={() => handleReschedule(apt)}
                       >
@@ -1088,6 +1189,54 @@ const AppointmentBooking = () => {
                 </button>
                 <button className="complete-appointment-btn" onClick={handleCompleteAppointment}>
                   <FaCheckCircle /> Mark as Completed
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Time Modal */}
+      {showEditTimeModal && appointmentToEditTime && (
+        <div className="modal-overlay" onClick={() => setShowEditTimeModal(false)}>
+          <div className="edit-time-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2>Edit Appointment Time</h2>
+              <button className="close-btn" onClick={() => setShowEditTimeModal(false)}>×</button>
+            </div>
+            
+            <div className="modal-body">
+              <div className="patient-summary">
+                <h3>{appointmentToEditTime.patientName}</h3>
+                <p>Current: {format(parseISO(appointmentToEditTime.date), 'dd-MM-yyyy')} at {formatTime(appointmentToEditTime.time)}</p>
+              </div>
+
+              <div className="time-slots-grid">
+                {editTimeSlots.map((slot, index) => (
+                  <button
+                    key={index}
+                    className={`time-slot-btn ${!slot.available ? 'booked' : ''} ${
+                      selectedEditSlot?.time === slot.time && selectedEditSlot?.subSlot === slot.subSlot ? 'selected' : ''
+                    }`}
+                    onClick={() => handleSelectEditSlot(slot)}
+                    disabled={!slot.available}
+                  >
+                    <div className="slot-time">{slot.displayTime}</div>
+                    <div className="slot-label">Sub-slot {slot.subSlot}</div>
+                  </button>
+                ))}
+              </div>
+
+              <div className="modal-actions">
+                <button className="cancel-btn" onClick={() => setShowEditTimeModal(false)}>
+                  Cancel
+                </button>
+                <button 
+                  className="save-time-btn" 
+                  onClick={handleSaveEditTime}
+                  disabled={!selectedEditSlot}
+                >
+                  <FaClock /> Save Time
                 </button>
               </div>
             </div>
