@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { getCallQueue, addToCallQueue, deleteFromCallQueue, completeCallQueue, getPatientByName, checkPatientInQueueToday, getAllPatients, createPatientFromCallQueue } from '../../firebase/firestore';
+import { getCallQueue, addToCallQueue, deleteFromCallQueue, completeCallQueue, checkPatientInQueueToday, createPatientFromCallQueue } from '../../firebase/firestore';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
 import ConfirmDialog from '../../components/ConfirmDialog';
@@ -11,9 +11,7 @@ import '../../styles/CallQueue.css';
 const CallQueue = () => {
   const toast = useToast();
   const [callQueue, setCallQueue] = useState([]);
-  const [patients, setPatients] = useState([]);
   const [showAddForm, setShowAddForm] = useState(false);
-  const [isChecking, setIsChecking] = useState(false);
   const [isAdding, setIsAdding] = useState(false);
   const [patientFound, setPatientFound] = useState(null);
   const [validationMessage, setValidationMessage] = useState('');
@@ -22,7 +20,6 @@ const CallQueue = () => {
   const [showCompleteModal, setShowCompleteModal] = useState(false);
   const [selectedCall, setSelectedCall] = useState(null);
   const [staffNotes, setStaffNotes] = useState('');
-  const [isNewPatient, setIsNewPatient] = useState(false);
   const [formData, setFormData] = useState({
     patientName: '',
     phone: '',
@@ -40,13 +37,8 @@ const CallQueue = () => {
       setCallQueue(data);
     });
 
-    const unsubscribePatients = getAllPatients((data) => {
-      setPatients(data);
-    });
-
     return () => {
       unsubscribeQueue();
-      unsubscribePatients();
     };
   }, []);
 
@@ -57,7 +49,6 @@ const CallQueue = () => {
   const handlePatientSelect = (patient) => {
     // Check if this is a brand new patient being added (not in database)
     if (patient.isNew) {
-      setIsNewPatient(true);
       setPatientFound(false);
       setFormData(prev => ({
         ...prev,
@@ -71,7 +62,6 @@ const CallQueue = () => {
       }));
       setValidationMessage('⚠ New patient. Please enter phone number and other details.');
     } else {
-      setIsNewPatient(patient.isNewPatient || false);
       setPatientFound(true);
       setFormData(prev => ({
         ...prev,
@@ -85,31 +75,6 @@ const CallQueue = () => {
       }));
       setValidationMessage(`✓ Patient found${patient.isNewPatient ? ' (New Patient)' : ' (Returning Patient)'}`);
     }
-  };
-
-  // Validate name-phone consistency
-  const validateNamePhoneConsistency = () => {
-    const { phone, patientName } = formData;
-    
-    // Check if this phone is linked to a different name
-    const phoneMatch = patients.find(p => p.phone === phone);
-    if (phoneMatch && phoneMatch.name !== patientName) {
-      return {
-        valid: false,
-        message: `⚠ Phone ${phone} is registered to "${phoneMatch.name}", not "${patientName}"`
-      };
-    }
-
-    // Check if this name is linked to a different phone
-    const nameMatch = patients.find(p => p.name === patientName);
-    if (nameMatch && nameMatch.phone !== phone) {
-      return {
-        valid: false,
-        message: `⚠ Patient "${patientName}" is registered with phone ${nameMatch.phone}, not ${phone}`
-      };
-    }
-
-    return { valid: true };
   };
 
   const handleAddToQueue = async (e) => {
@@ -154,7 +119,6 @@ const CallQueue = () => {
       }
 
       let patientId = formData.patientId;
-      let isNewPatient = formData.isNewPatient;
 
       // If patient not found, create new patient record
       if (patientFound === false) {
@@ -167,7 +131,7 @@ const CallQueue = () => {
         });
         
         patientId = newPatient.id;
-        isNewPatient = true;
+        formData.isNewPatient = true;
         
         toast.success(`New patient record created for ${formData.patientName}!`);
       }
@@ -181,11 +145,11 @@ const CallQueue = () => {
         gender: formData.gender || '',
         reasonForCall: formData.reasonForCall.trim(),
         status: 'waiting',
-        isNewPatient: isNewPatient,
+        isNewPatient: formData.isNewPatient,
         addedBy: currentUser?.email || 'staff'
       });
 
-      toast.success(`${formData.patientName} added to call queue successfully!${isNewPatient ? ' (Marked as New Patient)' : ''}`);
+      toast.success(`${formData.patientName} added to call queue successfully!${formData.isNewPatient ? ' (Marked as New Patient)' : ''}`);
       
       // Reset form
       setFormData({

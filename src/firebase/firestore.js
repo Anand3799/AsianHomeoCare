@@ -11,8 +11,7 @@ import {
   orderBy,
   onSnapshot,
   Timestamp,
-  runTransaction,
-  writeBatch
+  runTransaction
 } from 'firebase/firestore';
 import { db } from './config';
 

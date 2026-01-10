@@ -71,50 +71,6 @@ const AppointmentBooking = () => {
     };
   }, []);
 
-  useEffect(() => {
-    if (selectedDate) {
-      generateTimeSlots();
-    }
-  }, [selectedDate, generateTimeSlots]);
-
-  const handleNameChange = (name) => {
-    setFormData({ ...formData, patientName: name });
-  };
-
-  const handlePatientSelect = (patient) => {
-    // Check if this is a brand new patient being added (not in database)
-    if (patient.isNew) {
-      setIsNewPatient(true);
-      setFormData(prev => ({
-        ...prev,
-        patientName: patient.name,
-        patientPhone: '',
-        patientId: null,
-        patientAge: '',
-        patientGender: '',
-        patientPreviousVisits: [],
-        isNewPatient: true
-      }));
-    } else {
-      // Check if patient has completed any visits
-      const hasCompletedVisits = patient.previousVisits && patient.previousVisits.length > 0;
-      // Patient is new if they have no previous visits OR if explicitly marked as new
-      const patientIsNew = !hasCompletedVisits;
-      
-      setIsNewPatient(patientIsNew);
-      setFormData(prev => ({
-        ...prev,
-        patientName: patient.name,
-        patientPhone: patient.phone,
-        patientId: patient.id,
-        patientAge: patient.age || '',
-        patientGender: patient.gender || '',
-        patientPreviousVisits: patient.previousVisits || [],
-        isNewPatient: patientIsNew
-      }));
-    }
-  };
-
   const generateTimeSlots = useCallback(() => {
     const slots = [];
     const slotDuration = 15; // 15 minutes per slot
@@ -165,6 +121,50 @@ const AppointmentBooking = () => {
 
     setAvailableSlots(slots);
   }, [appointments, selectedDate]);
+
+  useEffect(() => {
+    if (selectedDate) {
+      generateTimeSlots();
+    }
+  }, [selectedDate, generateTimeSlots]);
+
+  const handleNameChange = (name) => {
+    setFormData({ ...formData, patientName: name });
+  };
+
+  const handlePatientSelect = (patient) => {
+    // Check if this is a brand new patient being added (not in database)
+    if (patient.isNew) {
+      setIsNewPatient(true);
+      setFormData(prev => ({
+        ...prev,
+        patientName: patient.name,
+        patientPhone: '',
+        patientId: null,
+        patientAge: '',
+        patientGender: '',
+        patientPreviousVisits: [],
+        isNewPatient: true
+      }));
+    } else {
+      // Check if patient has completed any visits
+      const hasCompletedVisits = patient.previousVisits && patient.previousVisits.length > 0;
+      // Patient is new if they have no previous visits OR if explicitly marked as new
+      const patientIsNew = !hasCompletedVisits;
+      
+      setIsNewPatient(patientIsNew);
+      setFormData(prev => ({
+        ...prev,
+        patientName: patient.name,
+        patientPhone: patient.phone,
+        patientId: patient.id,
+        patientAge: patient.age || '',
+        patientGender: patient.gender || '',
+        patientPreviousVisits: patient.previousVisits || [],
+        isNewPatient: patientIsNew
+      }));
+    }
+  };
 
   const handleSubSlotClick = (time, subSlot, isAvailable) => {
     if (!isAvailable) {
