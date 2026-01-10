@@ -1,10 +1,9 @@
 import { useState, useEffect } from 'react';
-import { getCallQueue, deleteFromCallQueue, getPatientByName, addToCallQueue, completeCallQueue, checkPatientInQueueToday, getAllPatients, createPatientFromCallQueue } from '../../firebase/firestore';
+import { getCallQueue, getPatientByName, addToCallQueue, completeCallQueue, checkPatientInQueueToday, createPatientFromCallQueue } from '../../firebase/firestore';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
-import ConfirmDialog from '../../components/ConfirmDialog';
 import PatientNameTypeahead from '../../components/PatientNameTypeahead';
-import { FaPhoneVolume, FaClock, FaCheckCircle, FaUserPlus, FaPlus } from 'react-icons/fa';
+import { FaPhoneVolume, FaCheckCircle, FaUserPlus, FaPlus } from 'react-icons/fa';
 import { format } from 'date-fns';
 import '../../styles/DoctorCallQueue.css';
 
@@ -13,13 +12,10 @@ const CallQueue = () => {
   const { currentUser } = useAuth();
   const [callQueue, setCallQueue] = useState([]);
   const [enrichedQueue, setEnrichedQueue] = useState([]);
-  const [patients, setPatients] = useState([]);
   const [showAddForm, setShowAddForm] = useState(false);
   const [isAdding, setIsAdding] = useState(false);
   const [patientFound, setPatientFound] = useState(null);
   const [validationMessage, setValidationMessage] = useState('');
-  const [isNewPatient, setIsNewPatient] = useState(false);
-  const [confirmDialog, setConfirmDialog] = useState({ isOpen: false, call: null });
   const [showCompleteModal, setShowCompleteModal] = useState(false);
   const [selectedCall, setSelectedCall] = useState(null);
   const [staffNotes, setStaffNotes] = useState('');
@@ -40,13 +36,8 @@ const CallQueue = () => {
       setCallQueue(data);
     });
 
-    const unsubscribePatients = getAllPatients((data) => {
-      setPatients(data);
-    });
-
     return () => {
       unsubscribeQueue();
-      unsubscribePatients();
     };
   }, []);
 
@@ -89,7 +80,6 @@ const CallQueue = () => {
 
   const handlePatientSelect = (patient) => {
     if (patient.isNew) {
-      setIsNewPatient(true);
       setPatientFound(false);
       setFormData(prev => ({
         ...prev,
@@ -103,7 +93,6 @@ const CallQueue = () => {
       }));
       setValidationMessage('⚠ New patient. Please enter phone number and other details.');
     } else {
-      setIsNewPatient(patient.isNewPatient || false);
       setPatientFound(true);
       setFormData(prev => ({
         ...prev,
@@ -422,14 +411,7 @@ const CallQueue = () => {
       <div className="queue-container">
         <div className="queue-header">
           <h2>Waiting Calls ({callQueue.length})</h2>
-          <div className="realtime-indicator">
-            <span className="realtime-dot"></span>
-            <span>Live Updates</span>
-          </div>
         </div>
-        <p className="queue-info">
-          <FaClock /> Doctor will attend calls in first-come-first-serve order
-        </p>
 
         {enrichedQueue.length === 0 ? (
           <div className="empty-state">
@@ -485,17 +467,6 @@ const CallQueue = () => {
             ))}
           </div>
         )}
-      </div>
-
-      <div className="queue-note">
-        <h3>📋 Queue Information:</h3>
-        <ul>
-          <li><strong>First-Come-First-Serve:</strong> Attend patients in order</li>
-          <li><strong>New Patient Indicator:</strong> Gold badge shows first-time patients (45 min consultation)</li>
-          <li><strong>Returning Patients:</strong> Regular patients (15 min consultation)</li>
-          <li><strong>Complete Button:</strong> Click after attending to patient to remove from queue</li>
-          <li><strong>Real-Time:</strong> Queue updates automatically as staff adds patients</li>
-        </ul>
       </div>
 
       {showCompleteModal && selectedCall && (

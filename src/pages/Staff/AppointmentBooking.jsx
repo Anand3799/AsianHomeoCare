@@ -188,8 +188,8 @@ const AppointmentBooking = () => {
           setFormData({ ...formData, time: '', subSlot: '', subSlotType: 'walkin', date: selectedDate });
         }
       } else {
-        // Add this slot
-        const slotType = subSlot === 'A' ? 'walkin' : formData.subSlotType || 'walkin';
+        // Add this slot - use the current formData.subSlotType for both A and B
+        const slotType = formData.subSlotType || 'walkin';
         const newSlots = [...selectedSlots, { time, subSlot, subSlotType: slotType }];
         setSelectedSlots(newSlots);
         // Update formData with first slot details for display
@@ -210,8 +210,8 @@ const AppointmentBooking = () => {
         setSelectedSlots([]);
         setFormData({ ...formData, time: '', subSlot: '', subSlotType: 'walkin', date: selectedDate });
       } else {
-        // Select single slot
-        const slotType = subSlot === 'A' ? 'walkin' : formData.subSlotType || 'walkin';
+        // Select single slot - use the current formData.subSlotType for both A and B
+        const slotType = formData.subSlotType || 'walkin';
         setSelectedSlots([{ time, subSlot, subSlotType: slotType }]);
         setFormData({ 
           ...formData, 
@@ -516,14 +516,17 @@ const AppointmentBooking = () => {
 
       const bookedAtTime = bookedSubSlots.get(timeStr) || { A: null, B: null };
 
-      ['A', 'B'].forEach(subSlot => {
-        const isBooked = bookedAtTime[subSlot] !== null;
-        slots.push({
-          time: timeStr,
-          subSlot,
-          available: !isBooked,
-          displayTime: formatTime(timeStr)
-        });
+      slots.push({
+        time: timeStr,
+        displayTime: formatTime(timeStr),
+        subSlotA: {
+          available: !bookedAtTime.A,
+          appointment: bookedAtTime.A
+        },
+        subSlotB: {
+          available: !bookedAtTime.B,
+          appointment: bookedAtTime.B
+        }
       });
     }
 
@@ -532,7 +535,10 @@ const AppointmentBooking = () => {
 
   const handleSelectEditSlot = (slot) => {
     if (slot.available) {
-      setSelectedEditSlot(slot);
+      setSelectedEditSlot({
+        time: slot.time,
+        subSlot: slot.subSlot
+      });
     }
   };
 
@@ -753,7 +759,7 @@ const AppointmentBooking = () => {
                         <div key={slot.time} className="dual-slot-container">
                         <div className="slot-time-label">{slot.display}</div>
                         <div className="sub-slots-row">
-                          {/* Sub-slot A - Walk-in only */}
+                          {/* Sub-slot A */}
                           <button
                             type="button"
                             className={`sub-slot-btn sub-slot-a ${
@@ -761,11 +767,10 @@ const AppointmentBooking = () => {
                             } ${isSlotASelected ? 'selected' : ''}`}
                             onClick={() => handleSubSlotClick(slot.time, 'A', slot.subSlotA.available)}
                             disabled={!slot.subSlotA.available}
-                            title={slot.subSlotA.available ? 'Sub-slot A - Walk-in only' : `Booked: ${slot.subSlotA.appointment?.patientName}`}
+                            title={slot.subSlotA.available ? 'Sub-slot A' : `Booked: ${slot.subSlotA.appointment?.patientName}`}
                           >
                             <div className="sub-slot-header">
                               <span className="sub-slot-label">A</span>
-                              <span className="sub-slot-type-badge walkin">Walk-in</span>
                             </div>
                             {!slot.subSlotA.available && slot.subSlotA.appointment ? (
                               <div className="sub-slot-patient">{slot.subSlotA.appointment.patientName}</div>
@@ -776,7 +781,7 @@ const AppointmentBooking = () => {
                             )}
                           </button>
 
-                          {/* Sub-slot B - Walk-in or Call */}
+                          {/* Sub-slot B */}
                           <button
                             type="button"
                             className={`sub-slot-btn sub-slot-b ${
@@ -784,17 +789,16 @@ const AppointmentBooking = () => {
                             } ${isSlotBSelected ? 'selected' : ''}`}
                             onClick={() => handleSubSlotClick(slot.time, 'B', slot.subSlotB.available)}
                             disabled={!slot.subSlotB.available}
-                            title={slot.subSlotB.available ? 'Sub-slot B - Walk-in or Call' : `Booked: ${slot.subSlotB.appointment?.patientName} (${slot.subSlotB.appointment?.subSlotType})`}
+                            title={slot.subSlotB.available ? 'Sub-slot B' : `Booked: ${slot.subSlotB.appointment?.patientName} (${slot.subSlotB.appointment?.subSlotType})`}
                           >
                             <div className="sub-slot-header">
                               <span className="sub-slot-label">B</span>
-                              <span className="sub-slot-type-badge both">Walk-in/Call</span>
                             </div>
                             {!slot.subSlotB.available && slot.subSlotB.appointment ? (
                               <>
                                 <div className="sub-slot-patient">{slot.subSlotB.appointment.patientName}</div>
                                 <span className={`appointment-type-badge ${slot.subSlotB.appointment.subSlotType}`}>
-                                  {slot.subSlotB.appointment.subSlotType === 'walkin' ? 'Walk-in' : 'Call'}
+                                  {slot.subSlotB.appointment.subSlotType === 'walkin' ? 'Walk-in' : slot.subSlotB.appointment.subSlotType === 'call' ? 'Call' : 'Booking'}
                                 </span>
                               </>
                             ) : (
@@ -843,9 +847,9 @@ const AppointmentBooking = () => {
                   />
                 </div>
 
-                {selectedSlots.length > 0 && selectedSlots.some(s => s.subSlot === 'B') && (
+                {selectedSlots.length > 0 && (
                   <div className="form-group">
-                    <label>Appointment Type * (Sub-slot B only)</label>
+                    <label>Appointment Type *</label>
                     <div className="type-selector">
                       <label className="type-option">
                         <input
@@ -856,9 +860,9 @@ const AppointmentBooking = () => {
                           onChange={(e) => {
                             const newType = e.target.value;
                             setFormData({ ...formData, subSlotType: newType });
-                            // Update all B slots in selectedSlots
+                            // Update all slots in selectedSlots
                             setSelectedSlots(selectedSlots.map(slot => 
-                              slot.subSlot === 'B' ? { ...slot, subSlotType: newType } : slot
+                              ({ ...slot, subSlotType: newType })
                             ));
                           }}
                         />
@@ -873,13 +877,30 @@ const AppointmentBooking = () => {
                           onChange={(e) => {
                             const newType = e.target.value;
                             setFormData({ ...formData, subSlotType: newType });
-                            // Update all B slots in selectedSlots
+                            // Update all slots in selectedSlots
                             setSelectedSlots(selectedSlots.map(slot => 
-                              slot.subSlot === 'B' ? { ...slot, subSlotType: newType } : slot
+                              ({ ...slot, subSlotType: newType })
                             ));
                           }}
                         />
                         <span className="type-label">Call</span>
+                      </label>
+                      <label className="type-option">
+                        <input
+                          type="radio"
+                          name="subSlotType"
+                          value="booking"
+                          checked={formData.subSlotType === 'booking'}
+                          onChange={(e) => {
+                            const newType = e.target.value;
+                            setFormData({ ...formData, subSlotType: newType });
+                            // Update all slots in selectedSlots
+                            setSelectedSlots(selectedSlots.map(slot => 
+                              ({ ...slot, subSlotType: newType })
+                            ));
+                          }}
+                        />
+                        <span className="type-label">Booking</span>
                       </label>
                     </div>
                   </div>
@@ -924,7 +945,7 @@ const AppointmentBooking = () => {
                           <div key={`${slot.time}-${slot.subSlot}`} style={{ marginTop: idx > 0 ? '0.5rem' : '0', paddingTop: idx > 0 ? '0.5rem' : '0', borderTop: idx > 0 ? '1px solid #e5e7eb' : 'none' }}>
                             <p><strong>Time {selectedSlots.length > 1 ? `${idx + 1}:` : ':'}</strong> {availableSlots.find(s => s.time === slot.time)?.display}</p>
                             <p><strong>Sub-slot:</strong> {slot.subSlot}</p>
-                            <p><strong>Type:</strong> {slot.subSlotType === 'walkin' ? 'Walk-in' : 'Call'}</p>
+                            <p><strong>Type:</strong> {slot.subSlotType === 'walkin' ? 'Walk-in' : slot.subSlotType === 'call' ? 'Call' : 'Booking'}</p>
                           </div>
                         ))}
                       </>
@@ -1060,15 +1081,20 @@ const AppointmentBooking = () => {
                           <div className="grouped-slots">
                             {apt.allSlots.map((slot, idx) => (
                               <span key={slot.id} className="slot-time-group">
-                                {formatTime(slot.time)}
+                                <span className="time-text">{formatTime(slot.time)}</span>
                                 {slot.subSlot && (
                                   <span className={`sub-slot-badge slot-${slot.subSlot.toLowerCase()}`}>
                                     {slot.subSlot}
                                   </span>
                                 )}
+                                {!slot.subSlot && (
+                                  <span className="sub-slot-badge slot-a">
+                                    A
+                                  </span>
+                                )}
                                 {slot.subSlotType && (
                                   <span className={`type-badge ${slot.subSlotType}`}>
-                                    {slot.subSlotType === 'walkin' ? 'Walk-in' : 'Call'}
+                                    {slot.subSlotType === 'walkin' ? 'WALK-IN' : slot.subSlotType === 'call' ? 'CALL' : 'BOOKING'}
                                   </span>
                                 )}
                                 {idx < apt.allSlots.length - 1 && <span className="slot-separator">•</span>}
@@ -1077,15 +1103,20 @@ const AppointmentBooking = () => {
                           </div>
                         ) : (
                           <>
-                            <span>{formatTime(apt.time)}</span>
+                            <span className="time-text">{formatTime(apt.time)}</span>
                             {apt.subSlot && (
                               <span className={`sub-slot-badge slot-${apt.subSlot.toLowerCase()}`}>
-                                Sub-slot {apt.subSlot}
+                                {apt.subSlot}
                               </span>
                             )}
                             {apt.subSlotType && (
                               <span className={`type-badge ${apt.subSlotType}`}>
-                                {apt.subSlotType === 'walkin' ? 'Walk-in' : 'Call'}
+                                {apt.subSlotType === 'walkin' ? 'WALK-IN' : apt.subSlotType === 'call' ? 'CALL' : 'BOOKING'}
+                              </span>
+                            )}
+                            {!apt.subSlot && (
+                              <span className="sub-slot-badge slot-a">
+                                A
                               </span>
                             )}
                           </>
@@ -1212,19 +1243,49 @@ const AppointmentBooking = () => {
               </div>
 
               <div className="time-slots-grid">
-                {editTimeSlots.map((slot, index) => (
-                  <button
-                    key={index}
-                    className={`time-slot-btn ${!slot.available ? 'booked' : ''} ${
-                      selectedEditSlot?.time === slot.time && selectedEditSlot?.subSlot === slot.subSlot ? 'selected' : ''
-                    }`}
-                    onClick={() => handleSelectEditSlot(slot)}
-                    disabled={!slot.available}
-                  >
-                    <div className="slot-time">{slot.displayTime}</div>
-                    <div className="slot-label">Sub-slot {slot.subSlot}</div>
-                  </button>
-                ))}
+                {editTimeSlots.map((slot) => {
+                  const isASelected = selectedEditSlot?.time === slot.time && selectedEditSlot?.subSlot === 'A';
+                  const isBSelected = selectedEditSlot?.time === slot.time && selectedEditSlot?.subSlot === 'B';
+                  
+                  return (
+                    <div key={slot.time} className="dual-slot-container">
+                      <div className="slot-time-label">{slot.displayTime}</div>
+                      <div className="sub-slots">
+                        {/* Sub-slot A */}
+                        <button
+                          type="button"
+                          className={`sub-slot-btn sub-slot-a ${!slot.subSlotA.available ? 'booked' : 'free'} ${
+                            isASelected ? 'selected' : ''
+                          }`}
+                          onClick={() => handleSelectEditSlot({ time: slot.time, subSlot: 'A', available: slot.subSlotA.available })}
+                          disabled={!slot.subSlotA.available}
+                        >
+                          <span className="sub-slot-badge">A</span>
+                          <span className="sub-slot-type">Walk-in</span>
+                          <span className="sub-slot-status">
+                            {!slot.subSlotA.available ? 'Booked' : isASelected ? 'Selected' : 'Free'}
+                          </span>
+                        </button>
+
+                        {/* Sub-slot B */}
+                        <button
+                          type="button"
+                          className={`sub-slot-btn sub-slot-b ${!slot.subSlotB.available ? 'booked' : 'free'} ${
+                            isBSelected ? 'selected' : ''
+                          }`}
+                          onClick={() => handleSelectEditSlot({ time: slot.time, subSlot: 'B', available: slot.subSlotB.available })}
+                          disabled={!slot.subSlotB.available}
+                        >
+                          <span className="sub-slot-badge">B</span>
+                          <span className="sub-slot-type">Walk-in/Call</span>
+                          <span className="sub-slot-status">
+                            {!slot.subSlotB.available ? 'Booked' : isBSelected ? 'Selected' : 'Free'}
+                          </span>
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
 
               <div className="modal-actions">

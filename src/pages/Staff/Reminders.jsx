@@ -2,11 +2,12 @@ import { useState, useEffect } from 'react';
 import { getReminders, addReminder, updateReminder, getAllAppointments, bookAppointmentWithTransaction, getPatientByName } from '../../firebase/firestore';
 import { useToast } from '../../contexts/ToastContext';
 import { FaBell, FaPlus, FaCalendarAlt, FaPhone, FaCalendarCheck, FaTimes } from 'react-icons/fa';
-import { format, subDays, addDays, parseISO, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay } from 'date-fns';
+import { format, addDays, parseISO } from 'date-fns';
 import '../../styles/Reminders.css';
 
 const Reminders = () => {
   const toast = useToast();
+  // eslint-disable-next-line no-unused-vars
   const [reminders, setReminders] = useState([]);
   const [appointments, setAppointments] = useState([]);
   const [showAddForm, setShowAddForm] = useState(false);
@@ -14,13 +15,14 @@ const Reminders = () => {
   const [selectedReminder, setSelectedReminder] = useState(null);
   const [medicineReminders, setMedicineReminders] = useState([]);
   const [generalReminders, setGeneralReminders] = useState([]);
-  const [reminderCheckDone, setReminderCheckDone] = useState(false);
   const [isBooking, setIsBooking] = useState(false);
   
   // Booking form state
   const [bookingDate, setBookingDate] = useState(format(new Date(), 'yyyy-MM-dd'));
   const [availableSlots, setAvailableSlots] = useState([]);
   const [selectedSlot, setSelectedSlot] = useState('');
+  const [selectedSubSlot, setSelectedSubSlot] = useState('');
+  const [selectedSubSlotType, setSelectedSubSlotType] = useState('walkin');
   const [bookingNotes, setBookingNotes] = useState('');
   const [isNewPatient, setIsNewPatient] = useState(false);
   
@@ -86,7 +88,6 @@ const Reminders = () => {
       setReminderCheckDone(true);
     }
   }, [appointments, reminders, reminderCheckDone]);
-  */
 
   const checkForMedicineReminders = async (appointmentsList, currentReminders) => {
     const tomorrow = format(addDays(new Date(), 1), 'yyyy-MM-dd');
@@ -119,6 +120,7 @@ const Reminders = () => {
       }
     }
   };
+  */
 
   const handleAddReminder = async (e) => {
     e.preventDefault();
@@ -184,62 +186,62 @@ const Reminders = () => {
     if (showBookingModal && bookingDate) {
       generateTimeSlots();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [showBookingModal, bookingDate, appointments]);
 
   const generateTimeSlots = () => {
     const slots = [];
     const slotDuration = 15;
 
-    const timeSlots = [
-      { start: { hour: 10, minute: 30 }, end: { hour: 13, minute: 30 } },
-      { start: { hour: 17, minute: 0 }, end: { hour: 21, minute: 0 } }
-    ];
+    // Continuous slots from 09:30 AM to 08:45 PM (09:30 - 20:45)
+    const startMinutes = 9 * 60 + 30; // 09:30
+    const endMinutes = 20 * 60 + 45; // 20:45
 
     const bookedAppointments = appointments.filter(
-      apt => apt.date === bookingDate && apt.status !== 'cancelled'
+      apt => apt.date === bookingDate && (apt.status === 'scheduled' || apt.status === 'rescheduled')
     );
 
-    const bookedSlotTimes = new Set();
+    // Create a map of booked sub-slots: time -> { A: appointment, B: appointment }
+    const bookedSubSlots = new Map();
     bookedAppointments.forEach(apt => {
-      const [hours, minutes] = apt.time.split(':').map(Number);
-      const startMinutes = hours * 60 + minutes;
-      const duration = apt.duration || 15;
-      const slotsNeeded = Math.ceil(duration / slotDuration);
+      const timeKey = apt.time;
+      if (!bookedSubSlots.has(timeKey)) {
+        bookedSubSlots.set(timeKey, { A: null, B: null });
+      }
+      const subSlot = apt.subSlot || 'A';
+      bookedSubSlots.get(timeKey)[subSlot] = apt;
+    });
+
+    // Generate continuous time slots with dual sub-slots (A and B)
+    for (let currentMinutes = startMinutes; currentMinutes <= endMinutes; currentMinutes += slotDuration) {
+      const hour = Math.floor(currentMinutes / 60);
+      const minute = currentMinutes % 60;
+      const timeStr = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
       
-      for (let i = 0; i < slotsNeeded; i++) {
-        const slotMinutes = startMinutes + (i * slotDuration);
-        const slotHour = Math.floor(slotMinutes / 60);
-        const slotMin = slotMinutes % 60;
-        const timeStr = `${slotHour.toString().padStart(2, '0')}:${slotMin.toString().padStart(2, '0')}`;
-        bookedSlotTimes.add(timeStr);
-      }
-    });
-
-    timeSlots.forEach(timeSlot => {
-      const startMinutes = timeSlot.start.hour * 60 + timeSlot.start.minute;
-      const endMinutes = timeSlot.end.hour * 60 + timeSlot.end.minute;
-
-      for (let currentMinutes = startMinutes; currentMinutes < endMinutes; currentMinutes += slotDuration) {
-        const hour = Math.floor(currentMinutes / 60);
-        const minute = currentMinutes % 60;
-        const timeStr = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
-        const period = hour >= 12 ? 'PM' : 'AM';
-        const displayHours = hour % 12 || 12;
-        
-        slots.push({
-          time: timeStr,
-          available: !bookedSlotTimes.has(timeStr),
-          display: `${displayHours}:${minute.toString().padStart(2, '0')} ${period}`
-        });
-      }
-    });
+      const booked = bookedSubSlots.get(timeStr) || { A: null, B: null };
+      
+      slots.push({
+        time: timeStr,
+        display: format(new Date(2000, 0, 1, hour, minute), 'h:mm a'),
+        subSlotA: {
+          available: !booked.A,
+          appointment: booked.A,
+          type: 'walkin' // A is always walk-in only
+        },
+        subSlotB: {
+          available: !booked.B,
+          appointment: booked.B,
+          type: booked.B?.subSlotType || 'both' // B can be walk-in or call
+        }
+      });
+    }
 
     setAvailableSlots(slots);
   };
 
   const handleConfirmBooking = async () => {
-    if (!selectedSlot) {
-      toast.warning('Please select a time slot');
+    if (!selectedSlot || !selectedSubSlot) {
+      toast.warning('Please select a time slot and sub-slot');
       return;
     }
 
@@ -248,8 +250,6 @@ const Reminders = () => {
     setIsBooking(true);
 
     try {
-      const duration = isNewPatient ? 45 : 15;
-
       await bookAppointmentWithTransaction({
         patientId: selectedReminder.patientId || null,
         patientName: selectedReminder.patientName,
@@ -259,10 +259,12 @@ const Reminders = () => {
         patientPreviousVisits: [],
         date: bookingDate,
         time: selectedSlot,
-        duration: duration,
+        subSlot: selectedSubSlot,
+        subSlotType: selectedSubSlotType,
         status: 'scheduled',
         notes: bookingNotes,
         bookedFrom: 'reminder',
+        bookedBy: 'staff',
         isNewPatient: isNewPatient
       });
 
@@ -273,6 +275,8 @@ const Reminders = () => {
       setShowBookingModal(false);
       setSelectedReminder(null);
       setSelectedSlot('');
+      setSelectedSubSlot('');
+      setSelectedSubSlotType('walkin');
       setBookingNotes('');
     } catch (error) {
       console.error('Error booking appointment:', error);
@@ -484,6 +488,8 @@ const Reminders = () => {
                   setShowBookingModal(false);
                   setSelectedReminder(null);
                   setSelectedSlot('');
+                  setSelectedSubSlot('');
+                  setSelectedSubSlotType('walkin');
                 }}
               >
                 <FaTimes />
@@ -495,7 +501,13 @@ const Reminders = () => {
                 <h3>Patient Information</h3>
                 <p><strong>Name:</strong> {selectedReminder.patientName}</p>
                 <p><strong>Phone:</strong> {selectedReminder.patientPhone}</p>
-                <p><strong>Type:</strong> {isNewPatient ? 'New Patient (45 min)' : 'Follow-up (15 min)'}</p>
+                <p><strong>Type:</strong> {isNewPatient ? 'New Patient' : 'Follow-up'}</p>
+                {selectedSlot && selectedSubSlot && (
+                  <>
+                    <p><strong>Selected Time:</strong> {format(new Date(2000, 0, 1, ...selectedSlot.split(':').map(Number)), 'h:mm a')}</p>
+                    <p><strong>Sub-slot:</strong> {selectedSubSlot} - {selectedSubSlotType === 'walkin' ? 'Walk-in' : selectedSubSlotType === 'call' ? 'Call' : 'Booking'}</p>
+                  </>
+                )}
               </div>
 
               <div className="form-group">
@@ -514,25 +526,92 @@ const Reminders = () => {
                   {availableSlots.length === 0 ? (
                     <p className="empty-message">No slots available for this date</p>
                   ) : (
-                    availableSlots.map((slot) => (
-                      <button
-                        key={slot.time}
-                        type="button"
-                        className={`time-slot-btn ${!slot.available ? 'booked' : 'free'} ${
-                          selectedSlot === slot.time ? 'selected' : ''
-                        }`}
-                        onClick={() => slot.available && setSelectedSlot(slot.time)}
-                        disabled={!slot.available}
-                      >
-                        {slot.display}
-                        <div className="slot-status">
-                          {!slot.available ? 'Booked' : selectedSlot === slot.time ? 'Selected' : 'Free'}
+                    availableSlots.map((slot) => {
+                      const isASelected = selectedSlot === slot.time && selectedSubSlot === 'A';
+                      const isBSelected = selectedSlot === slot.time && selectedSubSlot === 'B';
+                      
+                      return (
+                        <div key={slot.time} className="dual-slot-container">
+                          <div className="slot-time-label">{slot.display}</div>
+                          <div className="sub-slots">
+                            {/* Sub-slot A */}
+                            <button
+                              type="button"
+                              className={`sub-slot-btn sub-slot-a ${!slot.subSlotA.available ? 'booked' : 'free'} ${
+                                isASelected ? 'selected' : ''
+                              }`}
+                              onClick={() => {
+                                if (slot.subSlotA.available) {
+                                  setSelectedSlot(slot.time);
+                                  setSelectedSubSlot('A');
+                                }
+                              }}
+                              disabled={!slot.subSlotA.available}
+                              title="Sub-slot A"
+                            >
+                              <span className="sub-slot-badge">A</span>
+                              <span className="sub-slot-status">
+                                {!slot.subSlotA.available ? 'Booked' : isASelected ? 'Selected' : 'Free'}
+                              </span>
+                            </button>
+
+                            {/* Sub-slot B */}
+                            <button
+                              type="button"
+                              className={`sub-slot-btn sub-slot-b ${!slot.subSlotB.available ? 'booked' : 'free'} ${
+                                isBSelected ? 'selected' : ''
+                              }`}
+                              onClick={() => {
+                                if (slot.subSlotB.available) {
+                                  setSelectedSlot(slot.time);
+                                  setSelectedSubSlot('B');
+                                }
+                              }}
+                              disabled={!slot.subSlotB.available}
+                              title="Sub-slot B"
+                            >
+                              <span className="sub-slot-badge">B</span>
+                              <span className="sub-slot-status">
+                                {!slot.subSlotB.available ? 'Booked' : isBSelected ? 'Selected' : 'Free'}
+                              </span>
+                            </button>
+                          </div>
                         </div>
-                      </button>
-                    ))
+                      );
+                    })
                   )}
                 </div>
               </div>
+
+              {/* Show appointment type selector for both A and B */}
+              {selectedSubSlot && (
+                <div className="form-group">
+                  <label>Appointment Type *</label>
+                  <div className="appointment-type-selector">
+                    <button
+                      type="button"
+                      className={`type-btn ${selectedSubSlotType === 'walkin' ? 'active' : ''}`}
+                      onClick={() => setSelectedSubSlotType('walkin')}
+                    >
+                      Walk-in
+                    </button>
+                    <button
+                      type="button"
+                      className={`type-btn ${selectedSubSlotType === 'call' ? 'active' : ''}`}
+                      onClick={() => setSelectedSubSlotType('call')}
+                    >
+                      Call
+                    </button>
+                    <button
+                      type="button"
+                      className={`type-btn ${selectedSubSlotType === 'booking' ? 'active' : ''}`}
+                      onClick={() => setSelectedSubSlotType('booking')}
+                    >
+                      Booking
+                    </button>
+                  </div>
+                </div>
+              )}
 
               <div className="form-group">
                 <label>Notes</label>
@@ -548,7 +627,7 @@ const Reminders = () => {
                 <button
                   className="confirm-booking-btn"
                   onClick={handleConfirmBooking}
-                  disabled={!selectedSlot || isBooking}
+                  disabled={!selectedSlot || !selectedSubSlot || isBooking}
                 >
                   {isBooking ? 'Booking...' : 'Confirm Booking'}
                 </button>
@@ -558,6 +637,8 @@ const Reminders = () => {
                     setShowBookingModal(false);
                     setSelectedReminder(null);
                     setSelectedSlot('');
+                    setSelectedSubSlot('');
+                    setSelectedSubSlotType('walkin');
                   }}
                   disabled={isBooking}
                 >

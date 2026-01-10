@@ -120,13 +120,8 @@ export const bookAppointmentWithTransaction = async (appointmentData) => {
   }
   
   // Validate sub-slot type
-  if (!subSlotType || !['walkin', 'call'].includes(subSlotType)) {
-    throw new Error('Invalid sub-slot type. Must be walkin or call.');
-  }
-  
-  // Sub-slot A is always walk-in only
-  if (subSlot === 'A' && subSlotType !== 'walkin') {
-    throw new Error('Sub-slot A can only be booked as walk-in.');
+  if (!subSlotType || !['walkin', 'call', 'booking'].includes(subSlotType)) {
+    throw new Error('Invalid sub-slot type. Must be walkin, call, or booking.');
   }
 
   return await runTransaction(db, async (transaction) => {
@@ -186,9 +181,9 @@ export const updateAppointmentWithTransaction = async (appointmentId, updates) =
     const newSubSlot = subSlot || currentData.subSlot;
     const newSubSlotType = subSlotType || currentData.subSlotType;
 
-    // Validate sub-slot A is always walk-in
-    if (newSubSlot === 'A' && newSubSlotType !== 'walkin') {
-      throw new Error('Sub-slot A can only be booked as walk-in.');
+    // Validate sub-slot type
+    if (newSubSlotType && !['walkin', 'call', 'booking'].includes(newSubSlotType)) {
+      throw new Error('Invalid sub-slot type. Must be walkin, call, or booking.');
     }
 
     // Query for conflicting appointments at new time/slot (excluding this one)

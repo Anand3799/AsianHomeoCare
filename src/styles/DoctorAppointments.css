@@ -618,6 +618,71 @@
 }
 
 /* Sub-slot and Type Badges for Doctor View */
+.time-slot {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.25rem;
+}
+
+.time-text {
+  font-weight: 700;
+  color: #1f2937;
+}
+
+.sub-slot-badge {
+  display: inline-block;
+  padding: 0.35rem 0.75rem;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.sub-slot-badge.slot-a {
+  background: #3b82f6;
+  color: white;
+  border: 2px solid #2563eb;
+}
+
+.sub-slot-badge.slot-b {
+  background: #f59e0b;
+  color: white;
+  border: 2px solid #d97706;
+}
+
+.type-badge {
+  display: inline-block;
+  padding: 0.35rem 0.75rem;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.type-badge.walkin {
+  background: #3b82f6;
+  color: white;
+  border: 2px solid #2563eb;
+}
+
+.type-badge.call {
+  background: #ec4899;
+  color: white;
+  border: 2px solid #db2777;
+}
+
+.type-badge.booking {
+  background: #10b981;
+  color: white;
+  border: 2px solid #059669;
+}
+
 .sub-slot-badge-doctor {
   display: inline-block;
   padding: 0.2rem 0.5rem;
@@ -656,6 +721,11 @@
 .type-badge-doctor.call {
   background: #fce7f3;
   color: #be185d;
+}
+
+.type-badge-doctor.booking {
+  background: #d1fae5;
+  color: #047857;
 }
 
 /* Grouped Slots Styling */
@@ -712,6 +782,11 @@
 .type-badge-inline.call {
   background: #fce7f3;
   color: #be185d;
+}
+
+.type-badge-inline.booking {
+  background: #d1fae5;
+  color: #047857;
 }
 
 .slot-separator {

@@ -188,8 +188,22 @@ const DoctorAppointments = () => {
                       <div className="apt-time-section">
                         {group.map((apt, index) => (
                           <div key={apt.id} className="time-slot">
-                            {formatTime(apt.time)}
-                            {apt.subSlot && <span className="time-dot">•</span>}
+                            <span className="time-text">{formatTime(apt.time)}</span>
+                            {apt.subSlot && (
+                              <span className={`sub-slot-badge slot-${apt.subSlot.toLowerCase()}`}>
+                                {apt.subSlot}
+                              </span>
+                            )}
+                            {!apt.subSlot && (
+                              <span className="sub-slot-badge slot-a">
+                                A
+                              </span>
+                            )}
+                            {apt.subSlotType && (
+                              <span className={`type-badge ${apt.subSlotType}`}>
+                                {apt.subSlotType === 'walkin' ? 'WALK-IN' : apt.subSlotType === 'call' ? 'CALL' : 'BOOKING'}
+                              </span>
+                            )}
                           </div>
                         ))}
                       </div>

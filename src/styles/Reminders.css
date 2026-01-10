@@ -215,13 +215,189 @@
 
 .time-slots-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
-  gap: 10px;
-  max-height: 300px;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+  max-height: 400px;
   overflow-y: auto;
-  padding: 10px;
+  padding: 16px;
   background: #f9fafb;
   border-radius: 8px;
+}
+
+/* Dual Sub-Slot Container */
+.dual-slot-container {
+  background: white;
+  border-radius: 10px;
+  padding: 12px;
+  border: 2px solid #e5e7eb;
+  transition: all 0.2s;
+}
+
+.dual-slot-container:hover {
+  border-color: #14b8a6;
+  box-shadow: 0 2px 8px rgba(20, 184, 166, 0.1);
+}
+
+.slot-time-label {
+  text-align: center;
+  font-weight: 700;
+  font-size: 1rem;
+  color: #1f2937;
+  margin-bottom: 10px;
+  padding-bottom: 8px;
+  border-bottom: 2px solid #e5e7eb;
+}
+
+.sub-slots {
+  display: flex;
+  flex-direction: row;
+  gap: 8px;
+}
+
+.sub-slot-btn {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 12px 8px;
+  border: 2px solid #e5e7eb;
+  border-radius: 8px;
+  background: white;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-size: 0.85rem;
+  min-height: 80px;
+}
+
+.sub-slot-btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* Sub-slot A - Blue (Walk-in only) */
+.sub-slot-a.free {
+  border-color: #3b82f6;
+  background: #eff6ff;
+}
+
+.sub-slot-a.free:hover {
+  background: #dbeafe;
+  border-color: #2563eb;
+}
+
+.sub-slot-a.selected {
+  background: #3b82f6 !important;
+  border-color: #2563eb !important;
+  color: white !important;
+  transform: scale(1.02);
+}
+
+.sub-slot-a .sub-slot-badge {
+  background: #3b82f6;
+  color: white;
+}
+
+.sub-slot-a.selected .sub-slot-badge {
+  background: white;
+  color: #3b82f6;
+}
+
+/* Sub-slot B - Orange (Walk-in or Call) */
+.sub-slot-b.free {
+  border-color: #f97316;
+  background: #fff7ed;
+}
+
+.sub-slot-b.free:hover {
+  background: #ffedd5;
+  border-color: #ea580c;
+}
+
+.sub-slot-b.selected {
+  background: #f97316 !important;
+  border-color: #ea580c !important;
+  color: white !important;
+  transform: scale(1.02);
+}
+
+.sub-slot-b .sub-slot-badge {
+  background: #f97316;
+  color: white;
+}
+
+.sub-slot-b.selected .sub-slot-badge {
+  background: white;
+  color: #f97316;
+}
+
+/* Booked state for both sub-slots */
+.sub-slot-btn.booked {
+  background: #f3f4f6;
+  color: #9ca3af;
+  cursor: not-allowed;
+  border-color: #d1d5db;
+  opacity: 0.6;
+}
+
+.sub-slot-btn.booked .sub-slot-badge {
+  background: #9ca3af;
+}
+
+.sub-slot-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  font-weight: 700;
+  font-size: 0.75rem;
+}
+
+.sub-slot-type {
+  font-weight: 600;
+  font-size: 0.8rem;
+  color: inherit;
+}
+
+.sub-slot-status {
+  font-size: 0.7rem;
+  font-weight: 500;
+  opacity: 0.8;
+}
+
+/* Appointment Type Selector */
+.appointment-type-selector {
+  display: flex;
+  gap: 12px;
+  padding: 12px;
+  background: #f9fafb;
+  border-radius: 8px;
+}
+
+.appointment-type-selector .type-btn {
+  flex: 1;
+  padding: 12px;
+  border: 2px solid #e5e7eb;
+  border-radius: 8px;
+  background: white;
+  cursor: pointer;
+  font-weight: 600;
+  transition: all 0.2s;
+  color: #6b7280;
+}
+
+.appointment-type-selector .type-btn:hover {
+  border-color: #14b8a6;
+  color: #14b8a6;
+}
+
+.appointment-type-selector .type-btn.active {
+  background: #14b8a6;
+  border-color: #14b8a6;
+  color: white;
 }
 
 .time-slot-btn {

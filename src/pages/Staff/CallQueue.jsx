@@ -402,9 +402,6 @@ const CallQueue = () => {
         <div className="queue-header">
           <h2>Waiting Calls ({callQueue.length})</h2>
         </div>
-        <p className="queue-info">
-          <FaClock /> Doctor will attend calls in first-come-first-serve order
-        </p>
 
         {callQueue.length === 0 ? (
           <div className="empty-state">
